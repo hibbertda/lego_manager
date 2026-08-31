@@ -75,12 +75,20 @@ def create_app(config_class: type = Config) -> Flask:
         # attributes for one-off sizing — inline *scripts* (the actual XSS
         # vector) are never allowed. HSTS is left to the reverse proxy/operator
         # since this app doesn't know whether it's served over HTTPS.
+        #
+        # Framing is restricted to same-origin (not fully denied): set_detail.html
+        # renders instruction PDFs via <embed type="application/pdf">, and
+        # browsers' built-in PDF viewers render that inside an internal frame
+        # subject to these same headers — a blanket DENY/'none' blocks the
+        # browser's own PDF viewer from displaying same-origin files. Same-origin
+        # framing still fully prevents third-party clickjacking, the actual risk
+        # these headers exist for.
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; "
+            "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; "
             "img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
             "script-src 'self'; font-src 'self'",
         )
