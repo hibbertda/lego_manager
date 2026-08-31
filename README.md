@@ -143,7 +143,7 @@ One-time setup required in the Gitea repo:
 - Generate a Personal Access Token (Settings -> Applications) with
   `write:package` and `read:package` scopes — the built-in Actions token
   doesn't have registry write access.
-- Add it as a repo secret named `REGISTRY_TOKEN` (Repo -> Settings -> Actions
+- Add it as a repo secret named `DOCKERBUILD_SECRET` (Repo -> Settings -> Actions
   -> Secrets).
 
 After a new image is pushed, running deployments need to be restarted to pull

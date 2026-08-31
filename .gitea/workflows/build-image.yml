@@ -54,10 +54,10 @@ jobs:
       # Personal Access Token instead:
       #   1. Gitea -> Settings -> Applications -> Generate New Token
       #      with the "write:package" (and "read:package") scopes.
-      #   2. Repo -> Settings -> Actions -> Secrets -> add REGISTRY_TOKEN = that PAT.
+      #   2. Repo -> Settings -> Actions -> Secrets -> add DOCKERBUILD_SECRET = that PAT.
       - name: Log in to Gitea registry
         run: |
-          echo "${{ secrets.REGISTRY_TOKEN }}" \
+          echo "${{ secrets.DOCKERBUILD_SECRET }}" \
             | docker login gitea.thehibbs.net -u "${{ github.repository_owner }}" --password-stdin
 
       - name: Build image
