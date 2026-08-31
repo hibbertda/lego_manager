@@ -21,7 +21,11 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # See docker-compose.yml for why this points at a mounted *directory*
+      # rather than bind-mounting the .db file directly.
+      - DATABASE_PATH=/app/data/lego_sets.db
     volumes:
-      - ./lego_sets.db:/app/lego_sets.db
+      - ./data:/app/data
       - ./sets:/app/sets
     restart: unless-stopped

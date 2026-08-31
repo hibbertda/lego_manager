@@ -12,7 +12,15 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # Store the DB inside the mounted data/ *directory* rather than
+      # bind-mounting the .db file directly. If you bind-mount a file path
+      # that doesn't already exist on the host, Docker silently creates a
+      # directory there instead, which breaks sqlite3.connect() with
+      # "unable to open database file" — mounting a directory avoids that
+      # entirely, since directories are always created correctly.
+      - DATABASE_PATH=/app/data/lego_sets.db
     volumes:
-      - ./lego_sets.db:/app/lego_sets.db
+      - ./data:/app/data
       - ./sets:/app/sets
     restart: unless-stopped

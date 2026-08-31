@@ -7,5 +7,6 @@ __pycache__
 .gitignore
 tests
 sets
+data
 lego_sets.db
 combined_data.json

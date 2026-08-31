@@ -5,5 +5,6 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 *.db
+data/
 sets/
 node_modules/

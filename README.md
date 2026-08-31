@@ -140,6 +140,14 @@ docker compose -f docker-compose.registry.yml pull
 docker compose -f docker-compose.registry.yml up -d
 ```
 
+> **Upgrading an existing deployment?** Earlier versions bind-mounted
+> `./lego_sets.db` directly as a file. If you have one from before, move it
+> into the new `data/` directory before restarting so the app finds your
+> existing sets instead of creating a fresh empty database:
+> ```bash
+> mkdir -p data && mv lego_sets.db data/lego_sets.db
+> ```
+
 ## CI: building and publishing the image
 
 `.gitea/workflows/build-image.yml` builds the Docker image on the in-cluster
@@ -215,7 +223,11 @@ pytest -q
 - OIDC client secrets are stored in `lego_sets.db` (not env vars) so they can
   be managed from the UI — back up/secure the database file accordingly.
 - The provided `Dockerfile` runs the app as a dedicated non-root `appuser`
-  rather than root. If you bind-mount `lego_sets.db`/`sets/` from the host
-  (as `docker-compose.yml` does), ensure those paths are writable by that
-  user (e.g. `chmod`/`chown` on the host, or align UIDs) or the container
-  will fail to write to them.
+  rather than root. `docker-entrypoint.sh` starts as root just long enough to
+  fix ownership of the bind-mounted `data/`/`sets/` directories, then drops
+  to `appuser` (via `gosu`) before running gunicorn — no manual `chown` on
+  the host is required. `docker-compose.yml` mounts a `data/` *directory*
+  (containing `lego_sets.db`) rather than bind-mounting the `.db` file
+  directly, since Docker silently creates a directory instead of a file at
+  a bind-mount target that doesn't already exist on the host — mounting a
+  directory sidesteps that footgun entirely.
