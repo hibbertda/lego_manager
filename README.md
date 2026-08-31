@@ -126,8 +126,18 @@ gunicorn -b 0.0.0.0:8000 --workers 2 wsgi:app
 
 ## Running with Docker
 
+Build and run locally from source:
+
 ```bash
 docker compose up --build
+```
+
+Or pull the pre-built image published by CI (see below) instead of building
+locally — useful on the actual deployment host:
+
+```bash
+docker compose -f docker-compose.registry.yml pull
+docker compose -f docker-compose.registry.yml up -d
 ```
 
 ## CI: building and publishing the image

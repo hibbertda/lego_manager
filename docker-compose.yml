@@ -2,7 +2,12 @@ version: "3.8"
 
 services:
   lego-manager:
+    # Local dev/testing: build the image from this checkout.
     build: .
+    # Production/deployment: pull the pre-built image from the Gitea registry
+    # instead (published by .gitea/workflows/build-image.yml). Comment out
+    # `build: .` above and uncomment the line below, then `docker compose pull`.
+    # image: gitea.thehibbs.net/xamlok/lego_manager:latest
     ports:
       - "8000:8000"
     env_file:
