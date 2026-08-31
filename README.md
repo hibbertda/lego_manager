@@ -130,6 +130,33 @@ gunicorn -b 0.0.0.0:8000 --workers 2 wsgi:app
 docker compose up --build
 ```
 
+## CI: building and publishing the image
+
+`.gitea/workflows/build-image.yml` builds the Docker image on the in-cluster
+Gitea Actions runner and pushes it to the Gitea container registry as
+`gitea.thehibbs.net/xamlok/lego_manager`, tagged both `latest` (or a
+manually-chosen tag) and the short commit SHA. It runs automatically on every
+push to `main`, or on demand via Actions -> "Build lego-manager image" -> "Run
+workflow".
+
+One-time setup required in the Gitea repo:
+- Generate a Personal Access Token (Settings -> Applications) with
+  `write:package` and `read:package` scopes — the built-in Actions token
+  doesn't have registry write access.
+- Add it as a repo secret named `REGISTRY_TOKEN` (Repo -> Settings -> Actions
+  -> Secrets).
+
+After a new image is pushed, running deployments need to be restarted to pull
+it (mutable tags aren't automatically re-pulled):
+
+```bash
+# Kubernetes
+kubectl -n lego-manager rollout restart deploy/lego-manager
+
+# docker compose
+docker compose pull && docker compose up -d
+```
+
 ## CLI usage
 
 ```bash

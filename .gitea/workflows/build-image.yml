@@ -1,0 +1,77 @@
+# Build the Lego Manager Docker image on the in-cluster Gitea act-runner
+# (apps/act-runner — it has a privileged Docker-in-Docker sidecar) and push
+# it to the Gitea container registry.
+#
+# HOW TO RUN
+#   - Automatically: on every push to main.
+#   - On demand: Gitea UI -> repo -> Actions -> "Build lego-manager image"
+#     -> "Run workflow" (lets you override the tag).
+#
+# After it pushes, restart the deployment so it re-pulls the (mutable) tag:
+#   kubectl -n lego-manager rollout restart deploy/lego-manager
+# (Or `docker compose pull && docker compose up -d` for a docker-compose host.)
+
+name: Build lego-manager image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag to push
+        default: latest
+
+concurrency:
+  group: build-lego-manager
+  cancel-in-progress: true
+
+env:
+  IMAGE: gitea.thehibbs.net/xamlok/lego_manager
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # The act-runner injects --add-host=docker:host-gateway into job
+      # containers, so this resolves to the in-pod docker:dind daemon (non-TLS).
+      DOCKER_HOST: tcp://docker:2375
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ubuntu-latest job containers don't ship a docker CLI; the act-runner
+      # exposes the DinD daemon to this job, so we just need the CLI.
+      - name: Install Docker CLI
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends docker.io
+          docker version
+
+      # Auth to the Gitea container registry. Gitea's built-in Actions token
+      # (GITHUB_TOKEN) does NOT carry package/registry write scope, so use a
+      # Personal Access Token instead:
+      #   1. Gitea -> Settings -> Applications -> Generate New Token
+      #      with the "write:package" (and "read:package") scopes.
+      #   2. Repo -> Settings -> Actions -> Secrets -> add REGISTRY_TOKEN = that PAT.
+      - name: Log in to Gitea registry
+        run: |
+          echo "${{ secrets.REGISTRY_TOKEN }}" \
+            | docker login gitea.thehibbs.net -u "${{ github.repository_owner }}" --password-stdin
+
+      - name: Build image
+        run: |
+          docker build \
+            -t "${IMAGE}:${{ inputs.tag || 'latest' }}" \
+            -t "${IMAGE}:${GITHUB_SHA::7}" \
+            .
+
+      - name: Push image
+        run: |
+          docker push "${IMAGE}:${{ inputs.tag || 'latest' }}"
+          docker push "${IMAGE}:${GITHUB_SHA::7}"
+
+      - name: Logout
+        if: always()
+        run: docker logout gitea.thehibbs.net
