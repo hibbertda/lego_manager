@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-center">
+    <div class="card shadow-sm" style="max-width: 26rem; width: 100%;">
+        <div class="card-body p-4">
+            <h1 class="h4 text-center mb-1"><i class="bi bi-box-seam-fill"></i> Lego Manager</h1>
+            <p class="text-muted text-center mb-4">
+                {% if is_fallback %}Fallback local login{% else %}Sign in to continue{% endif %}
+            </p>
+
+            {% if is_fallback %}
+                <div class="alert alert-warning small">
+                    This is the fallback local login, used if single sign-on is unavailable.
+                </div>
+            {% endif %}
+
+            {% if oidc_enabled %}
+                <a href="{{ url_for('auth.oidc_login') }}" class="btn btn-primary w-100 mb-3">
+                    <i class="bi bi-shield-lock-fill"></i> Sign in with {{ oidc_name or 'SSO' }}
+                </a>
+            {% endif %}
+
+            {% if not local_disabled %}
+                {% if oidc_enabled %}
+                    <div class="d-flex align-items-center my-3">
+                        <hr class="flex-grow-1">
+                        <span class="px-2 text-muted small">or</span>
+                        <hr class="flex-grow-1">
+                    </div>
+                {% endif %}
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Log in</button>
+                </form>
+            {% elif fallback_url %}
+                <p class="text-center small mt-3">
+                    Having trouble with SSO? <a href="{{ fallback_url }}">Use the fallback local login</a>.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% set status_icons = {'not_started': 'bi-square', 'in_progress': 'bi-tools', 'complete': 'bi-check-circle-fill'} %}
+{% set status_badge_classes = {'not_started': 'bg-secondary-subtle text-secondary-emphasis', 'in_progress': 'bg-warning text-dark', 'complete': 'bg-success-subtle text-success-emphasis'} %}
+<div class="col">
+    <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="card h-100 text-decoration-none text-dark card-hover-lift">
+        <div class="position-relative bg-light">
+            {% if set.local_images %}
+                <img src="{{ url_for('sets.custom_static', filename=set.local_images[0]) }}"
+                     alt="{{ set.name }}" class="set-grid-thumb card-img-top">
+            {% else %}
+                <div class="set-grid-thumb d-flex align-items-center justify-content-center fs-1 text-secondary opacity-50"><i class="bi bi-box-seam-fill"></i></div>
+            {% endif %}
+            <span class="badge {{ status_badge_classes[set.build_status] }} position-absolute top-0 end-0 m-2">
+                <i class="bi {{ status_icons[set.build_status] }}"></i>
+            </span>
+        </div>
+        <div class="card-body p-2">
+            <p class="fw-semibold small mb-0 text-truncate">{{ set.name }}</p>
+            <p class="small text-muted mb-0">#{{ set.setNumber }} &middot; {{ set.theme }}</p>
+        </div>
+    </a>
+</div>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Single Sign-On{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-3 mb-3">
+        {% include "_admin_sidebar.html" %}
+    </div>
+    <div class="col-md-9">
+        <h1 class="h3 mb-3">Single Sign-On (OIDC)</h1>
+        <div class="card" style="max-width: 36rem;">
+            <div class="card-body">
+                <form method="post" action="{{ url_for('admin.update_oidc') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Provider name</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               value="{{ provider.name if provider else 'OIDC Provider' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="issuer" class="form-label">Issuer URL</label>
+                        <input type="text" class="form-control" id="issuer" name="issuer"
+                               placeholder="https://authentik.example.com/application/o/lego-manager/"
+                               value="{{ provider.issuer if provider else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="client_id" class="form-label">Client ID</label>
+                        <input type="text" class="form-control" id="client_id" name="client_id"
+                               value="{{ provider.client_id if provider else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="client_secret" class="form-label">Client secret</label>
+                        <input type="password" class="form-control" id="client_secret" name="client_secret"
+                               placeholder="{{ 'Leave blank to keep current secret' if provider else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="scopes" class="form-label">Scopes</label>
+                        <input type="text" class="form-control" id="scopes" name="scopes"
+                               value="{{ provider.scopes if provider else 'openid profile email' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="default_role" class="form-label">Default role for new SSO users</label>
+                        <select class="form-select" id="default_role" name="default_role">
+                            {% for r in roles %}
+                                <option value="{{ r }}" {{ 'selected' if provider and provider.default_role == r }}>{{ r|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="enabled" name="enabled" value="1"
+                               {{ 'checked' if provider and provider.enabled }}>
+                        <label class="form-check-label" for="enabled">Enable SSO login</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="disable_local_login" name="disable_local_login" value="1"
+                               {{ 'checked' if provider and provider.disable_local_login }}>
+                        <label class="form-check-label" for="disable_local_login">
+                            Disable local login page (a fallback login remains available at
+                            <code>/login/local</code>)
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save SSO configuration</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

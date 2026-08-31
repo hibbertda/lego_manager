@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Search Results{% endblock %}
+{% block content %}
+{% if query %}
+    <h1 class="h3 mb-3">Search results for "{{ query }}"</h1>
+{% else %}
+    <h1 class="h3 mb-3">Search Sets</h1>
+    <p class="text-muted">Use the search box in the top bar to find a set by name or number.</p>
+{% endif %}
+
+{% if query and not sets %}
+    <div class="text-center text-muted py-5">
+        <p class="display-1 text-secondary"><i class="bi bi-search"></i></p>
+        <p>No sets matched your search.</p>
+    </div>
+{% elif sets %}
+    <div class="list-group list-group-flush card">
+        {% for set in sets %}
+            {% include "_set_card.html" %}
+        {% endfor %}
+    </div>
+{% endif %}
+
+{% if total_pages > 1 %}
+    <nav aria-label="Search pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {{ 'active' if p == page }}">
+                    <a class="page-link" href="{{ url_for('sets.search', page=p, query=query) }}">{{ p }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </nav>
+{% endif %}
+{% endblock %}

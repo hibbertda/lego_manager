@@ -1,0 +1,20 @@
+<div class="mb-2">
+    <h2 class="sidebar-heading ps-0">Filters</h2>
+    <div class="card">
+        <div class="card-body py-2 px-2">
+            <h3 class="h6 text-primary mb-2 px-2 pt-1">Theme</h3>
+            <div class="list-group list-group-flush small">
+                <a href="{{ url_for('sets.list_sets', view=view) }}"
+                   class="list-group-item list-group-item-action border-0 rounded-2 py-1 px-2 {{ 'active' if not theme }}">
+                    All themes
+                </a>
+                {% for t in themes %}
+                    <a href="{{ url_for('sets.list_sets', view=view, theme=t) }}"
+                       class="list-group-item list-group-item-action border-0 rounded-2 py-1 px-2 text-truncate {{ 'active' if theme == t }}">
+                        {{ t }}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>

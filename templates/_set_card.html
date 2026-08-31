@@ -1,0 +1,24 @@
+{% set status_icons = {'not_started': 'bi-square', 'in_progress': 'bi-tools', 'complete': 'bi-check-circle-fill'} %}
+{% set status_labels = {'not_started': 'Not started', 'in_progress': 'In progress', 'complete': 'Complete'} %}
+{% set status_badge_classes = {'not_started': 'bg-secondary-subtle text-secondary-emphasis', 'in_progress': 'bg-warning text-dark', 'complete': 'bg-success-subtle text-success-emphasis'} %}
+<div class="list-group-item d-flex gap-3 p-3 border-0 border-bottom">
+    {% if set.local_images %}
+        <img src="{{ url_for('sets.custom_static', filename=set.local_images[0]) }}"
+             alt="{{ set.name }}" class="set-thumb" style="width:5rem;height:5rem;">
+    {% else %}
+        <div class="set-thumb d-flex align-items-center justify-content-center fs-2 flex-shrink-0 text-secondary" style="width:5rem;height:5rem;"><i class="bi bi-box-seam-fill"></i></div>
+    {% endif %}
+    <div class="min-w-0 flex-grow-1">
+        <h2 class="h5 mb-1 text-truncate">
+            <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="link-dark link-underline-opacity-0 link-underline-opacity-100-hover">
+                {{ set.name }} <span class="text-muted fw-normal">({{ set.year }})</span>
+            </a>
+        </h2>
+        <p class="small text-muted mb-2">Set #{{ set.setNumber }} &middot; {{ set.theme }} &middot; {{ set.pieces }} pcs</p>
+        <span class="badge {{ status_badge_classes[set.build_status] }}">
+            <i class="bi {{ status_icons[set.build_status] }}"></i>
+            {{ status_labels[set.build_status] }}
+            {% if set.build_status == 'in_progress' and set.build_page %} (page {{ set.build_page }}){% endif %}
+        </span>
+    </div>
+</div>

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-3 mb-3">
+        {% include "_admin_sidebar.html" %}
+    </div>
+    <div class="col-md-9">
+        <h1 class="h3 mb-3">User Management</h1>
+
+        <div class="card mb-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Auth</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>{{ user.username }}{% if user.id == current_user.id %} <span class="badge bg-secondary-subtle text-secondary-emphasis">you</span>{% endif %}</td>
+                                <td class="text-muted small">{{ user.email or '—' }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ user.auth_provider }}</span></td>
+                                <td>
+                                    <form method="post" action="{{ url_for('admin.update_user_role', user_id=user.id) }}" class="d-flex align-items-center gap-1">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <select name="role" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                                            {% for r in roles %}
+                                                <option value="{{ r }}" {{ 'selected' if user.role == r }}>{{ r|capitalize }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                </td>
+                                <td>
+                                    {% if user.is_active %}
+                                        <span class="badge bg-success-subtle text-success-emphasis">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary-emphasis">Disabled</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form method="post" action="{{ url_for('admin.toggle_user_active', user_id=user.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="is_active" value="{{ '0' if user.is_active else '1' }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            {{ 'Deactivate' if user.is_active else 'Activate' }}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" class="d-inline"
+                                          onsubmit="return confirm('Delete user {{ user.username }}?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="max-width: 28rem;">
+            <div class="card-body">
+                <h2 class="h6 card-title">Create user</h2>
+                <form method="post" action="{{ url_for('admin.create_user') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="new_username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="new_username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="new_password" name="password" required minlength="8">
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_role" class="form-label">Role</label>
+                        <select class="form-select" id="new_role" name="role">
+                            {% for r in roles %}
+                                <option value="{{ r }}">{{ r|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create user</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

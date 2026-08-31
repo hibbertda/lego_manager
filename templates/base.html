@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LEGO Manager{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><text y=%2226%22 font-size=%2226%22>🧱</text></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+    <header class="navbar navbar-dark bg-primary sticky-top p-0">
+        <div class="container-fluid d-flex align-items-center flex-wrap justify-content-start gap-2 gap-md-3 py-2">
+            {% if current_user.is_authenticated %}
+                <button class="navbar-toggler d-md-none flex-shrink-0" type="button"
+                        data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu"
+                        aria-label="Toggle navigation">
+                    <i class="bi bi-list fs-4 text-white"></i>
+                </button>
+            {% endif %}
+            <a class="navbar-brand fs-5 fw-bold flex-shrink-0 d-flex align-items-center gap-2" href="{{ url_for('sets.list_sets') if current_user.is_authenticated else url_for('auth.login') }}">
+                <i class="bi bi-box-seam-fill"></i> <span class="d-none d-sm-inline">LEGO Manager</span>
+            </a>
+
+            {% if current_user.is_authenticated %}
+                <div class="flex-grow-1 d-none d-sm-block" style="max-width: 32rem;">
+                    <form method="GET" action="{{ url_for('sets.search') }}" id="topbar-search-form" autocomplete="off" class="position-relative">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-0" aria-hidden="true"><i class="bi bi-search"></i></span>
+                            <input type="text" name="query" id="topbar-search-input" autocomplete="off"
+                                   placeholder="Search your sets..."
+                                   data-suggest-url="{{ url_for('sets.search_suggest') }}"
+                                   class="form-control border-0">
+                        </div>
+                        <div id="topbar-search-results" class="d-none position-absolute start-0 end-0 mt-1 bg-white text-dark rounded-3 shadow-sm border overflow-auto"
+                             style="max-height: 24rem; z-index: 1030;"></div>
+                    </form>
+                </div>
+
+                <div class="dropdown text-end flex-shrink-0 ms-auto">
+                    <a href="#" class="d-flex align-items-center gap-2 text-white text-decoration-none dropdown-toggle"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="avatar-badge">{{ current_user.username[0]|upper }}</span>
+                        <span class="d-none d-md-inline">
+                            {{ current_user.username }}{% if current_user.is_admin %} <small class="text-warning">(admin)</small>{% endif %}
+                        </span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end text-small shadow">
+                        {% if current_user.is_admin %}
+                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('admin.users') }}"><i class="bi bi-gear-fill"></i> Admin</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        <li>
+                            <form method="POST" action="{{ url_for('auth.logout') }}" class="m-0">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+        <div class="stud-row bg-danger-subtle"></div>
+    </header>
+
+    <div class="app-shell">
+        {% if current_user.is_authenticated %}
+            <div class="app-sidebar">
+                <div class="offcanvas-md offcanvas-start" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
+                    <div class="offcanvas-header">
+                        <h5 class="offcanvas-title d-flex align-items-center gap-2" id="sidebarMenuLabel"><i class="bi bi-box-seam-fill"></i> LEGO Manager</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
+                    </div>
+                    <div class="offcanvas-body d-md-flex flex-column p-2 p-md-3">
+                        <ul class="nav flex-column mb-3">
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'sets.list_sets' %}active{% endif %}" href="{{ url_for('sets.list_sets') }}">
+                                    <i class="bi bi-boxes"></i> <span>My Sets</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <button type="button" class="nav-link w-100 text-start border-0" data-bs-toggle="modal" data-bs-target="#addSetModal">
+                                    <i class="bi bi-plus-circle-fill"></i> <span>Add a Set</span>
+                                </button>
+                            </li>
+                        </ul>
+                        {% if current_user.is_admin %}
+                            <div class="sidebar-heading">Administration</div>
+                            <ul class="nav flex-column">
+                                <li class="nav-item">
+                                    <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}"
+                                       href="{{ url_for('admin.users') }}">
+                                        <i class="bi bi-gear-fill"></i> <span>Admin Area</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        {% endif %}
+                        <div class="mt-auto d-none d-md-block small text-muted px-2 pt-3">
+                            LEGO Manager &mdash; a personal collection tracker.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <main class="app-main px-3 px-md-4 py-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-3">
+                        {% for category, message in messages %}
+                            <div class="alert {{ 'alert-danger' if category == 'error' else 'alert-success' }} d-flex align-items-center gap-2 py-2" role="alert">
+                                <i class="bi {{ 'bi-exclamation-triangle-fill' if category == 'error' else 'bi-check-circle-fill' }}"></i> {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {% if current_user.is_authenticated %}
+        <div class="modal fade" id="addSetModal" tabindex="-1" aria-labelledby="addSetModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title d-flex align-items-center gap-2" id="addSetModalLabel">
+                            <i class="bi bi-plus-circle-fill text-primary"></i> Add a Set
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="btn-group w-100 mb-3" role="group" aria-label="Add-set method">
+                            <input type="radio" class="btn-check" name="add_set_method" id="addSetMethodAuto" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="addSetMethodAuto">
+                                <i class="bi bi-search"></i> Automatic &ndash; Brickset
+                            </label>
+
+                            <input type="radio" class="btn-check" name="add_set_method" id="addSetMethodManual" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="addSetMethodManual">
+                                <i class="bi bi-pencil-square"></i> Add Manually
+                            </label>
+                        </div>
+
+                        <div id="addSetAutoPane">
+                            {% if not brickset_configured %}
+                                <div class="alert alert-warning small">
+                                    Brickset API key is not configured.
+                                    {% if current_user.is_admin %}
+                                        <a href="{{ url_for('admin.brickset') }}">Set it up here</a>.
+                                    {% else %}
+                                        Ask an administrator to configure it, or use Manual instead.
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            <form method="post" action="{{ url_for('sets.add_set') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="mb-3">
+                                    <label for="modal_set_number" class="form-label">Set Number</label>
+                                    <input type="text" class="form-control" id="modal_set_number" name="set_number"
+                                           placeholder="e.g. 75192-1" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Fetch from Brickset</button>
+                            </form>
+                        </div>
+
+                        <div id="addSetManualPane" class="d-none">
+                            <form method="post" action="{{ url_for('sets.add_set_manual') }}" enctype="multipart/form-data">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="mb-3">
+                                    <label for="modal_m_set_number" class="form-label">Set Number *</label>
+                                    <input type="text" class="form-control" id="modal_m_set_number" name="set_number" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="modal_m_name" class="form-label">Name *</label>
+                                    <input type="text" class="form-control" id="modal_m_name" name="name" required>
+                                </div>
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <label for="modal_m_year" class="form-label">Year</label>
+                                        <input type="number" class="form-control" id="modal_m_year" name="year">
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <label for="modal_m_pieces" class="form-label">Pieces</label>
+                                        <input type="number" class="form-control" id="modal_m_pieces" name="pieces">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="modal_m_theme" class="form-label">Theme</label>
+                                    <input type="text" class="form-control" id="modal_m_theme" name="theme">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="modal_m_image" class="form-label">Cover image</label>
+                                    <input type="file" class="form-control" id="modal_m_image" name="image" accept="image/*">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="modal_m_instructions" class="form-label">Instruction PDFs</label>
+                                    <input type="file" class="form-control" id="modal_m_instructions" name="instructions"
+                                           accept="application/pdf" multiple>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Add set manually</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "lego_manager",
+  "version": "1.0.0",
+  "description": "A personal web app for tracking the LEGO sets you own. Add a set by number and it pulls set details and images from [Brickset](https://brickset.com/api/v3.asmx), plus the official building-instructions PDF directly from LEGO.com, so you can browse your collection and re-view any set's instructions from the browser.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build:css": "sass static/src/custom-bootstrap.scss static/css/app.css --load-path=node_modules --style=compressed --no-source-map",
+    "watch:css": "sass static/src/custom-bootstrap.scss static/css/app.css --load-path=node_modules --watch --no-source-map",
+    "build:js": "node -e \"require('fs').copyFileSync('node_modules/bootstrap/dist/js/bootstrap.bundle.min.js','static/js/bootstrap.bundle.min.js')\"",
+    "build:assets": "node -e \"const fs=require('fs');fs.mkdirSync('static/css/fonts',{recursive:true});for (const f of fs.readdirSync('node_modules/bootstrap-icons/font/fonts')) fs.copyFileSync('node_modules/bootstrap-icons/font/fonts/'+f,'static/css/fonts/'+f);\"",
+    "build": "npm run build:css && npm run build:js && npm run build:assets"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "sass": "^1.103.1"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "bootstrap-icons": "^1.13.1"
+  }
+}

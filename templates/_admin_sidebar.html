@@ -1,0 +1,25 @@
+<div class="mb-2">
+    <h2 class="sidebar-heading ps-0">Authentication</h2>
+    <div class="card mb-3">
+        <div class="list-group list-group-flush small">
+            <a href="{{ url_for('admin.users') }}"
+               class="list-group-item list-group-item-action border-0 {{ 'active' if request.endpoint == 'admin.users' }}">
+                <i class="bi bi-people-fill"></i> User Management
+            </a>
+            <a href="{{ url_for('admin.sso') }}"
+               class="list-group-item list-group-item-action border-0 {{ 'active' if request.endpoint == 'admin.sso' }}">
+                <i class="bi bi-shield-lock-fill"></i> Single Sign-On
+            </a>
+        </div>
+    </div>
+
+    <h2 class="sidebar-heading ps-0">Integrations</h2>
+    <div class="card">
+        <div class="list-group list-group-flush small">
+            <a href="{{ url_for('admin.brickset') }}"
+               class="list-group-item list-group-item-action border-0 {{ 'active' if request.endpoint == 'admin.brickset' }}">
+                <i class="bi bi-box-seam-fill"></i> Brickset API
+            </a>
+        </div>
+    </div>
+</div>
