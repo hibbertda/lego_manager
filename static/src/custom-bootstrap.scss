@@ -63,7 +63,22 @@ body {
 // Cap the sets list/grid page's width so cards don't stretch too wide on
 // large monitors; centers the sidebar + content row within the main column.
 .sets-page-container {
-    max-width: 1400px;
+    max-width: 1600px;
+}
+
+// The sets-list filter column: fixed, narrower width at md+ (rather than a
+// percentage-based Bootstrap column) so the sets grid/list gets the bulk of
+// the available width by default instead of a fixed 25%/75% split.
+@include media-breakpoint-up(md) {
+    .sets-filter-col {
+        flex: 0 0 15rem;
+        width: 15rem;
+        max-width: 15rem;
+    }
+}
+
+.sets-content-col {
+    min-width: 0;
 }
 
 // Persistent sidebar (desktop: fixed column; mobile: Bootstrap offcanvas
