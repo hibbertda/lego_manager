@@ -1,21 +1,20 @@
 {% extends "base.html" %}
 {% block title %}My Sets{% endblock %}
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">My Sets</h1>
+    <div class="btn-group" role="group" aria-label="View toggle">
+        <a href="{{ url_for('sets.list_sets', view='grid', theme=theme, status=status, favorite=('1' if favorite_only else None)) }}"
+           class="btn btn-outline-secondary {{ 'active' if view == 'grid' }}"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</a>
+        <a href="{{ url_for('sets.list_sets', view='list', theme=theme, status=status, favorite=('1' if favorite_only else None)) }}"
+           class="btn btn-outline-secondary {{ 'active' if view == 'list' }}"><i class="bi bi-list-ul"></i> List</a>
+    </div>
+</div>
 <div class="row sets-page-container mx-auto gx-4">
     <div class="col-12 col-md-auto sets-filter-col mb-3">
         {% include "_sidebar.html" %}
     </div>
     <div class="col-12 col-md sets-content-col">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1 class="h3 mb-0">My Sets</h1>
-            <div class="btn-group" role="group" aria-label="View toggle">
-                <a href="{{ url_for('sets.list_sets', view='grid', theme=theme, status=status, favorite=('1' if favorite_only else None)) }}"
-                   class="btn btn-outline-secondary {{ 'active' if view == 'grid' }}"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</a>
-                <a href="{{ url_for('sets.list_sets', view='list', theme=theme, status=status, favorite=('1' if favorite_only else None)) }}"
-                   class="btn btn-outline-secondary {{ 'active' if view == 'list' }}"><i class="bi bi-list-ul"></i> List</a>
-            </div>
-        </div>
-
         {% if not sets %}
             <div class="text-center text-muted py-5">
                 <p class="display-1 text-secondary"><i class="bi bi-box-seam-fill"></i></p>

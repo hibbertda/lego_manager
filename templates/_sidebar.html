@@ -1,9 +1,4 @@
 <div class="mb-2">
-    <a href="{{ url_for('sets.list_sets', view=view, theme=theme, status=status, favorite=None if favorite_only else '1') }}"
-       class="btn w-100 d-flex align-items-center justify-content-center gap-2 mb-2 {{ 'btn-danger' if favorite_only else 'btn-outline-danger' }}">
-        <i class="bi {{ 'bi-heart-fill' if favorite_only else 'bi-heart' }}"></i>
-        {{ 'Showing favorites' if favorite_only else 'Favorites' }}
-    </a>
     <h2 class="sidebar-heading ps-0">Filters</h2>
     <div class="card">
         <div class="card-body py-2 px-2">
@@ -40,4 +35,10 @@
             </div>
         </div>
     </div>
+    <a href="{{ url_for('sets.list_sets', view=view, theme=theme, status=status, favorite=None if favorite_only else '1') }}"
+       class="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2 mt-2 py-1 px-2 {{ 'btn-danger' if favorite_only else 'btn-outline-danger' }}">
+        <i class="bi {{ 'bi-heart-fill' if favorite_only else 'bi-heart' }}"></i>
+        {{ 'Showing favorites' if favorite_only else 'Favorites' }}
+    </a>
 </div>
+
