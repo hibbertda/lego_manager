@@ -105,6 +105,20 @@ def create_app(config_class: type = Config) -> Flask:
             return {}
         return {"brickset_configured": bool(app.brickset_api.api_key)}
 
+    @app.context_processor
+    def _inject_build_status_meta():
+        # Single source of truth for build_status display (badge color/icon,
+        # dropdown labels, sidebar status filter) — see BUILD_STATUS_META in
+        # sql_ops.py. Exposed globally so templates don't each redefine it.
+        from sql_ops import VALID_BUILD_STATUSES, BUILD_STATUS_META
+
+        return {
+            "build_statuses": VALID_BUILD_STATUSES,
+            "status_labels": {k: v["label"] for k, v in BUILD_STATUS_META.items()},
+            "status_icons": {k: v["icon"] for k, v in BUILD_STATUS_META.items()},
+            "status_badge_classes": {k: v["badge_class"] for k, v in BUILD_STATUS_META.items()},
+        }
+
     @login_manager.user_loader
     def load_user(user_id):
         from app.user import User

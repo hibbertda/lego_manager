@@ -1,5 +1,3 @@
-{% set status_icons = {'not_started': 'bi-square', 'in_progress': 'bi-tools', 'complete': 'bi-check-circle-fill'} %}
-{% set status_badge_classes = {'not_started': 'bg-secondary-subtle text-secondary-emphasis', 'in_progress': 'bg-warning text-dark', 'complete': 'bg-success-subtle text-success-emphasis'} %}
 <div class="col">
     <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="card h-100 text-decoration-none text-dark card-hover-lift">
         <div class="position-relative bg-light">

@@ -36,7 +36,6 @@ function initViewer(root) {
     const zoomOutBtn = root.querySelector(".pdf-viewer-zoom-out");
     const card = root.closest(".card");
     const statusEl = card ? card.querySelector(".pdf-viewer-status") : null;
-    const titleEl = card ? card.querySelector(".pdf-viewer-title") : null;
     const switchBtns = card ? card.querySelectorAll(".pdf-viewer-switch") : [];
     const ctx = canvas.getContext("2d");
 
@@ -138,7 +137,6 @@ function initViewer(root) {
             if (btn.classList.contains("btn-primary")) return; // already active
             switchBtns.forEach((b) => b.classList.replace("btn-primary", "btn-outline-secondary"));
             btn.classList.replace("btn-outline-secondary", "btn-primary");
-            if (titleEl) titleEl.textContent = btn.dataset.pdfName || "";
             // Switching booklets always starts at page 1 — build_page tracks a
             // single page number for the whole set, not per-booklet.
             loadDocument(btn.dataset.pdfUrl, 1);

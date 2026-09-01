@@ -10,12 +10,16 @@ browse your collection and re-view any set's instructions from the browser.
 - Add a set by number — fetches metadata, box art, and the official instructions PDF
 - Add a set manually (name, year, theme, pieces, optional image/PDF upload) when
   Brickset isn't available, isn't configured, or you'd simply rather not use it
-- Browse your collection with pagination, list/grid views, and a theme filter sidebar
+- Browse your collection with pagination, list/grid views, and sidebar filters
+  for theme and build status (Not Started / In Progress / Complete / Storage)
 - Search sets by name, with a predictive live-search box in the top bar
 - View a set's detail page with images and a self-hosted PDF.js viewer for
-  instructions, which auto-saves reading progress (current page) as you browse
-- Track build progress (page + status) per set so you can pick up a build later
-- Remove a set (admin only)
+  instructions, which auto-saves reading progress (current page) as you browse,
+  supports switching between multiple instruction booklets, and can be resized
+  by dragging its bottom edge
+- Track build progress (page + status, including a "Storage" state) per set so
+  you can pick up a build later
+- Remove a set (admin only), with a confirmation popover before deleting
 - Authentication: local accounts by default, with optional OIDC single sign-on
   (e.g. Authentik). Admins can manage users/roles and SSO config from the UI.
 - CLI for bulk/scripted imports without the web UI

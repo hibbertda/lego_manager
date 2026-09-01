@@ -118,3 +118,26 @@
         }
     });
 })();
+
+(function () {
+    // Delete-set confirmation popover (set_detail.html). Bootstrap doesn't
+    // auto-initialize popovers, and its default content sanitizer strips
+    // <button> tags from data-bs-content — safe to disable sanitization here
+    // since the content is fully server-rendered/Jinja-escaped, not
+    // user-controlled.
+    const deleteBtn = document.getElementById('delete-set-btn');
+    if (!deleteBtn || typeof bootstrap === 'undefined') return;
+
+    const popover = new bootstrap.Popover(deleteBtn, {
+        sanitize: false,
+        trigger: 'click',
+    });
+
+    document.addEventListener('click', function (event) {
+        if (event.target.closest('[data-popover-cancel]')) {
+            popover.hide();
+        } else if (event.target.closest('[data-popover-confirm-delete]')) {
+            document.getElementById('delete-set-form').submit();
+        }
+    });
+})();

@@ -215,8 +215,11 @@ button.app-sidebar-nav-btn,
 
 .pdf-viewer-canvas-wrap {
     width: 100%;
-    max-height: 70vh;
+    height: 70vh;
+    min-height: 20rem;
+    max-height: 90vh;
     overflow: auto;
+    resize: vertical;
     display: flex;
     justify-content: center;
     background: #6c757d;

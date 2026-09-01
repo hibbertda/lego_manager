@@ -45,9 +45,9 @@
                     <div class="col-auto">
                         <label for="build_status" class="form-label small mb-1">Status</label>
                         <select class="form-select" id="build_status" name="build_status">
-                            <option value="not_started" {{ 'selected' if set.build_status == 'not_started' }}>Not started</option>
-                            <option value="in_progress" {{ 'selected' if set.build_status == 'in_progress' }}>In progress</option>
-                            <option value="complete" {{ 'selected' if set.build_status == 'complete' }}>Complete</option>
+                            {% for s in build_statuses %}
+                                <option value="{{ s }}" {{ 'selected' if set.build_status == s }}>{{ status_labels[s] }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="col-auto">
@@ -62,10 +62,18 @@
         </div>
 
         {% if current_user.is_admin %}
-            <form method="post" action="{{ url_for('sets.delete_set', set_id=set.setID) }}"
-                  onsubmit="return confirm('Delete {{ set.name }}? This cannot be undone.');">
+            <form method="post" action="{{ url_for('sets.delete_set', set_id=set.setID) }}" id="delete-set-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash-fill"></i> Delete set</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="delete-set-btn"
+                        data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true"
+                        data-bs-title="Delete this set?"
+                        data-bs-content="<p class='small mb-2'>Delete <strong>{{ set.name }}</strong>? This cannot be undone.</p>
+                            <div class='d-flex gap-2 justify-content-end'>
+                                <button type='button' class='btn btn-sm btn-secondary' data-popover-cancel>Cancel</button>
+                                <button type='button' class='btn btn-sm btn-danger' data-popover-confirm-delete>Delete</button>
+                            </div>">
+                    <i class="bi bi-trash-fill"></i> Delete set
+                </button>
             </form>
         {% endif %}
     </div>
@@ -76,7 +84,7 @@
     <h2 class="h5 mb-3">Instructions</h2>
     <div class="card">
         <div class="card-header small d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span class="pdf-viewer-title">{{ set.local_instructions[0].split('/')[-1] }}</span>
+            <span>Instructions</span>
             <span class="pdf-viewer-status text-muted"></span>
         </div>
         {% if set.local_instructions|length > 1 %}
@@ -86,8 +94,7 @@
                     {% for pdf in set.local_instructions %}
                         <button type="button"
                                 class="btn btn-sm {{ 'btn-primary' if loop.first else 'btn-outline-secondary' }} pdf-viewer-switch"
-                                data-pdf-url="{{ url_for('sets.custom_static', filename=pdf) }}"
-                                data-pdf-name="{{ pdf.split('/')[-1] }}">
+                                data-pdf-url="{{ url_for('sets.custom_static', filename=pdf) }}">
                             Book {{ loop.index }}
                         </button>
                     {% endfor %}

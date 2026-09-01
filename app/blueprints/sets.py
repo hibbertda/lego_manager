@@ -289,8 +289,13 @@ def list_sets():
     if view not in ("list", "grid"):
         view = "list"
     theme = request.args.get("theme") or None
+    build_status = request.args.get("status") or None
+    if build_status not in VALID_BUILD_STATUSES:
+        build_status = None
     per_page = current_app.config["SETS_PER_PAGE"]
-    sets_data, total = current_app.db_ops.list_sets(page=page, per_page=per_page, theme=theme)
+    sets_data, total = current_app.db_ops.list_sets(
+        page=page, per_page=per_page, theme=theme, build_status=build_status
+    )
     total_pages = max(1, (total + per_page - 1) // per_page)
     themes = current_app.db_ops.get_distinct_themes()
     return render_template(
@@ -300,6 +305,7 @@ def list_sets():
         total_pages=total_pages,
         view=view,
         theme=theme,
+        status=build_status,
         themes=themes,
     )
 

@@ -13,7 +13,35 @@ SET_COLUMNS = (
     "build_page", "build_status",
 )
 
-VALID_BUILD_STATUSES = ("not_started", "in_progress", "complete")
+VALID_BUILD_STATUSES = ("not_started", "in_progress", "complete", "storage")
+
+# Single source of truth for how each build_status renders in the UI (badge
+# color/icon on set list/grid cards, dropdown labels, and the sidebar status
+# filter) — templates pull this via the status_labels/status_icons/
+# status_badge_classes context globals (see app/__init__.py) instead of each
+# defining their own copy.
+BUILD_STATUS_META = {
+    "not_started": {
+        "label": "Not Started",
+        "icon": "bi-square",
+        "badge_class": "bg-secondary-subtle text-secondary-emphasis",
+    },
+    "in_progress": {
+        "label": "In Progress",
+        "icon": "bi-tools",
+        "badge_class": "bg-warning text-dark",
+    },
+    "complete": {
+        "label": "Complete",
+        "icon": "bi-check-circle-fill",
+        "badge_class": "bg-success-subtle text-success-emphasis",
+    },
+    "storage": {
+        "label": "Storage",
+        "icon": "bi-archive-fill",
+        "badge_class": "bg-info-subtle text-info-emphasis",
+    },
+}
 
 
 
@@ -228,11 +256,22 @@ class DatabaseOps:
         return [row_to_dict(row) for row in rows], total
 
     def list_sets(
-        self, page: int = 1, per_page: int = 10, theme: Optional[str] = None
+        self,
+        page: int = 1,
+        per_page: int = 10,
+        theme: Optional[str] = None,
+        build_status: Optional[str] = None,
     ) -> tuple[list[dict[str, Any]], int]:
         offset = (page - 1) * per_page
-        where_clause = "WHERE theme = ?" if theme else ""
-        params: tuple = (theme,) if theme else ()
+        conditions = []
+        params: list = []
+        if theme:
+            conditions.append("theme = ?")
+            params.append(theme)
+        if build_status:
+            conditions.append("build_status = ?")
+            params.append(build_status)
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         with self.create_connection() as conn:
             cursor = conn.execute(
                 f"SELECT {', '.join(SET_COLUMNS)} FROM sets {where_clause} LIMIT ? OFFSET ?",
