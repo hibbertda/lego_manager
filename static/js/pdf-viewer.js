@@ -4,6 +4,11 @@
 // data-track-progress="true" it auto-saves the current page back to the
 // server (debounced) so "Build progress" reflects where the user left off,
 // without requiring them to type a page number manually.
+//
+// A set can have multiple instruction PDFs (multi-book sets). Only one is
+// shown at a time to avoid loading several PDF.js documents up front; the
+// ".pdf-viewer-switch" buttons in the card header swap the active document
+// into the same viewer instance instead of rendering N separate viewers.
 import * as pdfjsLib from "/static/js/pdfjs/pdf.min.mjs";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/js/pdfjs/pdf.worker.min.mjs";
@@ -21,7 +26,7 @@ function debounce(fn, delayMs) {
     };
 }
 
-async function initViewer(root) {
+function initViewer(root) {
     const canvas = root.querySelector(".pdf-viewer-canvas");
     const pageIndicator = root.querySelector(".pdf-viewer-page-indicator");
     const pageInput = root.querySelector(".pdf-viewer-page-input");
@@ -29,17 +34,20 @@ async function initViewer(root) {
     const nextBtn = root.querySelector(".pdf-viewer-next");
     const zoomInBtn = root.querySelector(".pdf-viewer-zoom-in");
     const zoomOutBtn = root.querySelector(".pdf-viewer-zoom-out");
-    const statusEl = root.querySelector(".pdf-viewer-status");
+    const card = root.closest(".card");
+    const statusEl = card ? card.querySelector(".pdf-viewer-status") : null;
+    const titleEl = card ? card.querySelector(".pdf-viewer-title") : null;
+    const switchBtns = card ? card.querySelectorAll(".pdf-viewer-switch") : [];
     const ctx = canvas.getContext("2d");
 
-    const url = root.dataset.pdfUrl;
     const trackProgress = root.dataset.trackProgress === "true";
     const progressUrl = root.dataset.progressUrl;
-    let currentPage = Math.max(1, parseInt(root.dataset.initialPage || "1", 10) || 1);
     let scale = 1.25;
     let pdfDoc = null;
     let renderTask = null;
-    let lastSavedPage = currentPage;
+    let currentPage = 1;
+    let lastSavedPage = null;
+    let loadToken = 0;
 
     const saveProgress = debounce(async (page) => {
         if (!trackProgress || !progressUrl || page === lastSavedPage) return;
@@ -93,6 +101,23 @@ async function initViewer(root) {
         saveProgress(num);
     }
 
+    async function loadDocument(url, initialPage) {
+        const myToken = ++loadToken;
+        pdfDoc = null;
+        lastSavedPage = null;
+        try {
+            if (statusEl) statusEl.textContent = "Loading…";
+            const doc = await pdfjsLib.getDocument(url).promise;
+            if (myToken !== loadToken) return; // a newer switch happened meanwhile
+            pdfDoc = doc;
+            if (statusEl) statusEl.textContent = "";
+            await renderPage(Math.max(1, initialPage || 1));
+        } catch (err) {
+            console.error("Failed to load PDF", err);
+            if (myToken === loadToken && statusEl) statusEl.textContent = "Failed to load this PDF.";
+        }
+    }
+
     prevBtn.addEventListener("click", () => renderPage(currentPage - 1));
     nextBtn.addEventListener("click", () => renderPage(currentPage + 1));
     pageInput.addEventListener("change", () => {
@@ -108,15 +133,19 @@ async function initViewer(root) {
         renderPage(currentPage);
     });
 
-    try {
-        if (statusEl) statusEl.textContent = "Loading…";
-        pdfDoc = await pdfjsLib.getDocument(url).promise;
-        if (statusEl) statusEl.textContent = "";
-        await renderPage(currentPage);
-    } catch (err) {
-        console.error("Failed to load PDF", err);
-        if (statusEl) statusEl.textContent = "Failed to load this PDF.";
-    }
+    switchBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            if (btn.classList.contains("btn-primary")) return; // already active
+            switchBtns.forEach((b) => b.classList.replace("btn-primary", "btn-outline-secondary"));
+            btn.classList.replace("btn-outline-secondary", "btn-primary");
+            if (titleEl) titleEl.textContent = btn.dataset.pdfName || "";
+            // Switching booklets always starts at page 1 — build_page tracks a
+            // single page number for the whole set, not per-booklet.
+            loadDocument(btn.dataset.pdfUrl, 1);
+        });
+    });
+
+    loadDocument(root.dataset.pdfUrl, parseInt(root.dataset.initialPage || "1", 10) || 1);
 }
 
 document.querySelectorAll(".pdf-viewer").forEach(initViewer);
