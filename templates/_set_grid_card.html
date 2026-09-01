@@ -1,19 +1,51 @@
 <div class="col">
-    <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="card h-100 text-decoration-none text-dark card-hover-lift">
-        <div class="position-relative bg-light">
-            {% if set.local_images %}
-                <img src="{{ url_for('sets.custom_static', filename=set.local_images[0]) }}"
-                     alt="{{ set.name }}" class="set-grid-thumb card-img-top">
-            {% else %}
-                <div class="set-grid-thumb d-flex align-items-center justify-content-center fs-1 text-secondary opacity-50"><i class="bi bi-box-seam-fill"></i></div>
-            {% endif %}
-            <span class="badge {{ status_badge_classes[set.build_status] }} position-absolute top-0 end-0 m-2">
-                <i class="bi {{ status_icons[set.build_status] }}"></i>
-            </span>
+    <div class="card h-100 set-grid-card card-hover-lift">
+        <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="text-decoration-none text-dark">
+            <div class="set-grid-thumb-wrap">
+                {% if set.local_images %}
+                    <img src="{{ url_for('sets.custom_static', filename=set.local_images[0]) }}"
+                         alt="{{ set.name }}" class="set-grid-thumb-img">
+                {% else %}
+                    <div class="fs-1 text-secondary opacity-50"><i class="bi bi-box-seam-fill"></i></div>
+                {% endif %}
+            </div>
+            <div class="card-body pb-2">
+                <p class="fw-semibold mb-0 text-truncate">{{ set.name }}</p>
+                <p class="small text-muted mb-0">#{{ set.setNumber }} &middot; {{ set.theme }}</p>
+            </div>
+        </a>
+        <div class="card-footer bg-white border-0 pt-0 px-3 pb-3 d-flex align-items-center justify-content-between gap-2">
+            <div class="dropdown set-status-dropdown">
+                <button type="button"
+                        class="btn btn-sm rounded-pill dropdown-toggle set-status-toggle {{ status_badge_classes[set.build_status] }}"
+                        data-bs-toggle="dropdown" aria-expanded="false"
+                        data-set-id="{{ set.setID }}"
+                        data-current-badge-class="{{ status_badge_classes[set.build_status] }}">
+                    <i class="bi {{ status_icons[set.build_status] }} set-status-icon"></i>
+                    <span class="set-status-label">{{ status_labels[set.build_status] }}</span>
+                </button>
+                <ul class="dropdown-menu">
+                    {% for s in build_statuses %}
+                        <li>
+                            <button type="button"
+                                    class="dropdown-item set-status-option {{ 'active' if s == set.build_status }}"
+                                    data-status="{{ s }}"
+                                    data-badge-class="{{ status_badge_classes[s] }}"
+                                    data-icon="{{ status_icons[s] }}"
+                                    data-label="{{ status_labels[s] }}">
+                                <i class="bi {{ status_icons[s] }}"></i> {{ status_labels[s] }}
+                            </button>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary rounded-circle set-favorite-btn {{ 'active text-danger border-danger' if set.favorite }}"
+                    data-set-id="{{ set.setID }}"
+                    aria-label="{{ 'Remove from favorites' if set.favorite else 'Add to favorites' }}"
+                    aria-pressed="{{ 'true' if set.favorite else 'false' }}">
+                <i class="bi {{ 'bi-heart-fill' if set.favorite else 'bi-heart' }}"></i>
+            </button>
         </div>
-        <div class="card-body p-2">
-            <p class="fw-semibold small mb-0 text-truncate">{{ set.name }}</p>
-            <p class="small text-muted mb-0">#{{ set.setNumber }} &middot; {{ set.theme }}</p>
-        </div>
-    </a>
+    </div>
 </div>

@@ -10,8 +10,14 @@ browse your collection and re-view any set's instructions from the browser.
 - Add a set by number — fetches metadata, box art, and the official instructions PDF
 - Add a set manually (name, year, theme, pieces, optional image/PDF upload) when
   Brickset isn't available, isn't configured, or you'd simply rather not use it
-- Browse your collection with pagination, list/grid views, and sidebar filters
-  for theme and build status (Not Started / In Progress / Complete / Storage)
+- Browse your collection with pagination, list/grid views (grid is the
+  default, styled after LEGO.com's shop cards), and sidebar filters for
+  favorites, theme, and build status (Not Started / In Progress / Complete /
+  Storage)
+- Mark sets as favorites with one click (heart icon), and filter the list down
+  to just your favorites from the sidebar
+- Change a set's build status directly from its list/grid card via a quick
+  dropdown, without opening the set detail page
 - Search sets by name, with a predictive live-search box in the top bar
 - View a set's detail page with images and a self-hosted PDF.js viewer for
   instructions, which auto-saves reading progress (current page) as you browse,

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 SET_COLUMNS = (
     "setID", "setNumber", "name", "year", "theme", "pieces",
     "launchDate", "instructions", "local_images", "local_instructions",
-    "build_page", "build_status",
+    "build_page", "build_status", "favorite",
 )
 
 VALID_BUILD_STATUSES = ("not_started", "in_progress", "complete", "storage")
@@ -63,6 +63,7 @@ def row_to_dict(row: tuple) -> dict[str, Any]:
     ]
     data["build_page"] = data.get("build_page") or 0
     data["build_status"] = data.get("build_status") or "not_started"
+    data["favorite"] = bool(data.get("favorite") or 0)
     return data
 
 
@@ -96,6 +97,7 @@ class DatabaseOps:
             for column, ddl in (
                 ("build_page", "ALTER TABLE sets ADD COLUMN build_page INTEGER DEFAULT 0"),
                 ("build_status", "ALTER TABLE sets ADD COLUMN build_status TEXT DEFAULT 'not_started'"),
+                ("favorite", "ALTER TABLE sets ADD COLUMN favorite INTEGER DEFAULT 0"),
             ):
                 if column in existing_columns:
                     continue
@@ -157,11 +159,12 @@ class DatabaseOps:
         existing = self.get_set_by_id(set_data.get("setID"))
         build_page = existing["build_page"] if existing else 0
         build_status = existing["build_status"] if existing else "not_started"
+        favorite = int(existing["favorite"]) if existing else 0
 
         with self.create_connection() as conn:
             conn.execute('''
-                INSERT OR REPLACE INTO sets (setID, setNumber, numberVariant, name, year, theme, pieces, launchDate, instructions, local_images, local_instructions, build_page, build_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO sets (setID, setNumber, numberVariant, name, year, theme, pieces, launchDate, instructions, local_images, local_instructions, build_page, build_status, favorite)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 set_data.get("setID"),
                 set_data.get("number"),
@@ -176,6 +179,7 @@ class DatabaseOps:
                 json.dumps(local_instr),
                 build_page,
                 build_status,
+                favorite,
             ))
 
     def insert_combined_data(self, combined_data: dict[str, Any]) -> None:
@@ -204,6 +208,28 @@ class DatabaseOps:
                 "WHERE setID = ?",
                 (build_page, set_id),
             )
+
+    def update_build_status_only(self, set_id: int, build_status: str) -> None:
+        """Update just build_status (e.g. the quick-change dropdown on set list/grid
+        cards), leaving build_page untouched — unlike update_build_progress, which
+        is used by the full "Save progress" form on the set detail page."""
+        if build_status not in VALID_BUILD_STATUSES:
+            raise ValueError(f"Invalid build_status: {build_status!r}")
+        logger.info("Updating build status for set ID %s: status=%s", set_id, build_status)
+        with self.create_connection() as conn:
+            conn.execute(
+                "UPDATE sets SET build_status = ? WHERE setID = ?",
+                (build_status, set_id),
+            )
+
+    def toggle_favorite(self, set_id: int) -> bool:
+        """Flip the favorite flag for a set and return the new value."""
+        with self.create_connection() as conn:
+            row = conn.execute("SELECT favorite FROM sets WHERE setID = ?", (set_id,)).fetchone()
+            new_value = 0 if (row and row[0]) else 1
+            conn.execute("UPDATE sets SET favorite = ? WHERE setID = ?", (new_value, set_id))
+        logger.info("Toggled favorite for set ID %s: favorite=%s", set_id, bool(new_value))
+        return bool(new_value)
 
     def delete_set(self, set_id: int) -> bool:
         """Delete a set's DB record. Returns True if a row was removed."""
@@ -261,6 +287,7 @@ class DatabaseOps:
         per_page: int = 10,
         theme: Optional[str] = None,
         build_status: Optional[str] = None,
+        favorite_only: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
         offset = (page - 1) * per_page
         conditions = []
@@ -271,6 +298,8 @@ class DatabaseOps:
         if build_status:
             conditions.append("build_status = ?")
             params.append(build_status)
+        if favorite_only:
+            conditions.append("favorite = 1")
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         with self.create_connection() as conn:
             cursor = conn.execute(

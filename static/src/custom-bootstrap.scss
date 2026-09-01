@@ -189,10 +189,48 @@ button.app-sidebar-nav-btn,
     background: #f1f3f5;
 }
 
-.set-grid-thumb {
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
+.set-grid-thumb-wrap {
+    aspect-ratio: 1 / 1;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.set-grid-thumb-img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+// Larger, LEGO-shop-style grid cards: bigger image area, quick-action footer
+// (build-status dropdown + favorite heart) instead of the old top-corner
+// status badge.
+.set-grid-card {
+    overflow: hidden;
+}
+
+.set-status-dropdown .set-status-toggle {
+    font-weight: 600;
+}
+
+.set-favorite-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.set-favorite-btn.active {
+    background-color: #fdecea;
 }
 
 .avatar-badge {

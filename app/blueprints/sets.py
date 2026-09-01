@@ -219,6 +219,36 @@ def update_progress_page(set_id):
     return jsonify(ok=True, build_page=max(0, build_page))
 
 
+@sets_bp.route("/set/<int(signed=True):set_id>/status", methods=["POST"])
+@login_required
+def update_status_only(set_id):
+    """AJAX endpoint for the quick build-status dropdown on set list/grid
+    cards, so users can change status without opening the set detail page."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+
+    payload = request.get_json(silent=True) or {}
+    build_status = payload.get("build_status")
+    if build_status not in VALID_BUILD_STATUSES:
+        return jsonify(error="Invalid build status"), 400
+
+    current_app.db_ops.update_build_status_only(set_id, build_status)
+    return jsonify(ok=True, build_status=build_status)
+
+
+@sets_bp.route("/set/<int(signed=True):set_id>/favorite", methods=["POST"])
+@login_required
+def toggle_favorite(set_id):
+    """AJAX endpoint for the heart button on set list/grid cards."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+
+    favorite = current_app.db_ops.toggle_favorite(set_id)
+    return jsonify(ok=True, favorite=favorite)
+
+
 @sets_bp.route("/set/<int(signed=True):set_id>/delete", methods=["POST"])
 @login_required
 @admin_required
@@ -285,16 +315,21 @@ def search_suggest():
 @login_required
 def list_sets():
     page = request.args.get("page", 1, type=int)
-    view = request.args.get("view", "list")
+    view = request.args.get("view", "grid")
     if view not in ("list", "grid"):
-        view = "list"
+        view = "grid"
     theme = request.args.get("theme") or None
     build_status = request.args.get("status") or None
     if build_status not in VALID_BUILD_STATUSES:
         build_status = None
+    favorite_only = request.args.get("favorite") == "1"
     per_page = current_app.config["SETS_PER_PAGE"]
     sets_data, total = current_app.db_ops.list_sets(
-        page=page, per_page=per_page, theme=theme, build_status=build_status
+        page=page,
+        per_page=per_page,
+        theme=theme,
+        build_status=build_status,
+        favorite_only=favorite_only,
     )
     total_pages = max(1, (total + per_page - 1) // per_page)
     themes = current_app.db_ops.get_distinct_themes()
@@ -306,6 +341,7 @@ def list_sets():
         view=view,
         theme=theme,
         status=build_status,
+        favorite_only=favorite_only,
         themes=themes,
     )
 

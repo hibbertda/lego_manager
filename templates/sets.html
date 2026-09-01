@@ -9,10 +9,10 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1 class="h3 mb-0">My Sets</h1>
             <div class="btn-group" role="group" aria-label="View toggle">
-                <a href="{{ url_for('sets.list_sets', view='list', theme=theme, status=status) }}"
-                   class="btn btn-outline-secondary {{ 'active' if view == 'list' }}"><i class="bi bi-list-ul"></i> List</a>
-                <a href="{{ url_for('sets.list_sets', view='grid', theme=theme, status=status) }}"
+                <a href="{{ url_for('sets.list_sets', view='grid', theme=theme, status=status, favorite=('1' if favorite_only else None)) }}"
                    class="btn btn-outline-secondary {{ 'active' if view == 'grid' }}"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</a>
+                <a href="{{ url_for('sets.list_sets', view='list', theme=theme, status=status, favorite=('1' if favorite_only else None)) }}"
+                   class="btn btn-outline-secondary {{ 'active' if view == 'list' }}"><i class="bi bi-list-ul"></i> List</a>
             </div>
         </div>
 
@@ -22,7 +22,7 @@
                 <p>No sets yet. <a href="{{ url_for('sets.add_set') }}">Add your first set</a>.</p>
             </div>
         {% elif view == 'grid' %}
-            <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
                 {% for set in sets %}
                     {% include "_set_grid_card.html" %}
                 {% endfor %}
@@ -40,7 +40,7 @@
                 <ul class="pagination justify-content-center">
                     {% for p in range(1, total_pages + 1) %}
                         <li class="page-item {{ 'active' if p == page }}">
-                            <a class="page-link" href="{{ url_for('sets.list_sets', page=p, view=view, theme=theme, status=status) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('sets.list_sets', page=p, view=view, theme=theme, status=status, favorite=('1' if favorite_only else None)) }}">{{ p }}</a>
                         </li>
                     {% endfor %}
                 </ul>

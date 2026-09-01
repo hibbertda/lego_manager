@@ -63,6 +63,59 @@ def test_get_set_by_id_returns_none_for_missing_set(db_ops):
     assert db_ops.get_set_by_id(999) is None
 
 
+def test_favorite_defaults_false_and_can_be_toggled(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    assert db_ops.get_set_by_id(111)["favorite"] is False
+
+    assert db_ops.toggle_favorite(111) is True
+    assert db_ops.get_set_by_id(111)["favorite"] is True
+
+    assert db_ops.toggle_favorite(111) is False
+    assert db_ops.get_set_by_id(111)["favorite"] is False
+
+
+def test_favorite_survives_reinsert(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.toggle_favorite(111)
+
+    # Simulate a refresh (re-adding the same set), which uses INSERT OR REPLACE.
+    db_ops.insert_set_data(SAMPLE_SET)
+
+    assert db_ops.get_set_by_id(111)["favorite"] is True
+
+
+def test_update_build_status_only_leaves_build_page_untouched(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.update_build_progress(111, build_page=42, build_status="in_progress")
+
+    db_ops.update_build_status_only(111, "storage")
+
+    result = db_ops.get_set_by_id(111)
+    assert result["build_status"] == "storage"
+    assert result["build_page"] == 42
+
+
+def test_update_build_status_only_rejects_invalid_status(db_ops):
+    import pytest
+
+    db_ops.insert_set_data(SAMPLE_SET)
+    with pytest.raises(ValueError):
+        db_ops.update_build_status_only(111, "bogus")
+
+
+def test_list_sets_favorite_only_filter(db_ops):
+    for i in range(3):
+        set_data = dict(SAMPLE_SET)
+        set_data["setID"] = i
+        set_data["number"] = str(2000 + i)
+        db_ops.insert_set_data(set_data)
+    db_ops.toggle_favorite(1)
+
+    sets_data, total = db_ops.list_sets(favorite_only=True)
+    assert total == 1
+    assert sets_data[0]["setID"] == 1
+
+
 def test_list_sets_pagination(db_ops):
     for i in range(15):
         set_data = dict(SAMPLE_SET)

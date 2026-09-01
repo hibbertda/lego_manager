@@ -343,3 +343,76 @@ def test_list_sets_view_toggle_and_theme_filter(app, admin_client):
     assert filtered_response.status_code == 200
     assert b"Set B" in filtered_response.data
     assert b"Set A" not in filtered_response.data
+
+
+def test_list_sets_defaults_to_grid_view(app, admin_client):
+    app.db_ops.insert_set_data({
+        "setID": 706, "number": "1", "name": "Default View Set", "year": 2024,
+        "theme": "Star Wars", "pieces": 1, "local_images": [], "local_instructions": [],
+    })
+
+    response = admin_client.get("/setlist")
+    assert response.status_code == 200
+    assert b"set-grid-card" in response.data
+
+
+def test_toggle_favorite(app, admin_client):
+    app.db_ops.insert_set_data({
+        "setID": 701, "number": "1", "name": "Fave Set", "year": 2024,
+        "theme": "Star Wars", "pieces": 1, "local_images": [], "local_instructions": [],
+    })
+
+    response = admin_client.post("/set/701/favorite")
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True, "favorite": True}
+
+    response = admin_client.post("/set/701/favorite")
+    assert response.get_json() == {"ok": True, "favorite": False}
+
+
+def test_toggle_favorite_404_for_missing_set(admin_client):
+    response = admin_client.post("/set/999/favorite")
+    assert response.status_code == 404
+
+
+def test_update_status_only(app, admin_client):
+    app.db_ops.insert_set_data({
+        "setID": 702, "number": "1", "name": "Status Set", "year": 2024,
+        "theme": "Star Wars", "pieces": 1, "local_images": [], "local_instructions": [],
+    })
+
+    response = admin_client.post(
+        "/set/702/status", json={"build_status": "storage"}
+    )
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True, "build_status": "storage"}
+    assert app.db_ops.get_set_by_id(702)["build_status"] == "storage"
+
+
+def test_update_status_only_rejects_invalid_status(app, admin_client):
+    app.db_ops.insert_set_data({
+        "setID": 703, "number": "1", "name": "Status Set 2", "year": 2024,
+        "theme": "Star Wars", "pieces": 1, "local_images": [], "local_instructions": [],
+    })
+
+    response = admin_client.post(
+        "/set/703/status", json={"build_status": "bogus"}
+    )
+    assert response.status_code == 400
+
+
+def test_list_sets_favorite_filter(app, admin_client):
+    app.db_ops.insert_set_data({
+        "setID": 704, "number": "1", "name": "Set Fave", "year": 2024,
+        "theme": "Star Wars", "pieces": 1, "local_images": [], "local_instructions": [],
+    })
+    app.db_ops.insert_set_data({
+        "setID": 705, "number": "2", "name": "Set Plain", "year": 2024,
+        "theme": "Star Wars", "pieces": 1, "local_images": [], "local_instructions": [],
+    })
+    admin_client.post("/set/704/favorite")
+
+    response = admin_client.get("/setlist?favorite=1")
+    assert response.status_code == 200
+    assert b"Set Fave" in response.data
+    assert b"Set Plain" not in response.data

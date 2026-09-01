@@ -141,3 +141,76 @@
         }
     });
 })();
+
+(function () {
+    // Quick actions on set list/grid cards: change build status from a
+    // dropdown and toggle favorite, both without navigating into the set
+    // detail page. Delegated on document since cards are rendered in a loop.
+    function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.content : '';
+    }
+
+    document.addEventListener('click', function (event) {
+        const statusOption = event.target.closest('.set-status-option');
+        if (statusOption) {
+            event.preventDefault();
+            const dropdown = statusOption.closest('.set-status-dropdown');
+            const toggle = dropdown.querySelector('.set-status-toggle');
+            const setId = toggle.dataset.setId;
+            const newStatus = statusOption.dataset.status;
+
+            fetch('/set/' + encodeURIComponent(setId) + '/status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                },
+                body: JSON.stringify({ build_status: newStatus }),
+            })
+                .then(function (resp) { return resp.ok ? resp.json() : Promise.reject(resp); })
+                .then(function () {
+                    const oldClasses = toggle.dataset.currentBadgeClass.split(' ').filter(Boolean);
+                    const newClasses = statusOption.dataset.badgeClass.split(' ').filter(Boolean);
+                    if (oldClasses.length) toggle.classList.remove(...oldClasses);
+                    if (newClasses.length) toggle.classList.add(...newClasses);
+                    toggle.dataset.currentBadgeClass = statusOption.dataset.badgeClass;
+                    toggle.querySelector('.set-status-icon').className = 'bi ' + statusOption.dataset.icon + ' set-status-icon';
+                    toggle.querySelector('.set-status-label').textContent = statusOption.dataset.label;
+                    dropdown.querySelectorAll('.set-status-option').forEach(function (opt) {
+                        opt.classList.remove('active');
+                    });
+                    statusOption.classList.add('active');
+                })
+                .catch(function () {
+                    // Leave the pill unchanged on failure — no toast system in
+                    // this app yet, so silently ignore rather than partially
+                    // update the UI to something inconsistent with the server.
+                });
+            return;
+        }
+
+        const favBtn = event.target.closest('.set-favorite-btn');
+        if (favBtn) {
+            event.preventDefault();
+            const setId = favBtn.dataset.setId;
+
+            fetch('/set/' + encodeURIComponent(setId) + '/favorite', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrfToken() },
+            })
+                .then(function (resp) { return resp.ok ? resp.json() : Promise.reject(resp); })
+                .then(function (data) {
+                    const isFavorite = !!data.favorite;
+                    favBtn.classList.toggle('active', isFavorite);
+                    favBtn.classList.toggle('text-danger', isFavorite);
+                    favBtn.classList.toggle('border-danger', isFavorite);
+                    favBtn.setAttribute('aria-pressed', String(isFavorite));
+                    favBtn.setAttribute('aria-label', isFavorite ? 'Remove from favorites' : 'Add to favorites');
+                    const icon = favBtn.querySelector('i');
+                    icon.className = isFavorite ? 'bi bi-heart-fill' : 'bi bi-heart';
+                })
+                .catch(function () {});
+        }
+    });
+})();

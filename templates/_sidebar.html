@@ -1,15 +1,20 @@
 <div class="mb-2">
+    <a href="{{ url_for('sets.list_sets', view=view, theme=theme, status=status, favorite=None if favorite_only else '1') }}"
+       class="btn w-100 d-flex align-items-center justify-content-center gap-2 mb-2 {{ 'btn-danger' if favorite_only else 'btn-outline-danger' }}">
+        <i class="bi {{ 'bi-heart-fill' if favorite_only else 'bi-heart' }}"></i>
+        {{ 'Showing favorites' if favorite_only else 'Favorites' }}
+    </a>
     <h2 class="sidebar-heading ps-0">Filters</h2>
     <div class="card">
         <div class="card-body py-2 px-2">
             <h3 class="h6 text-primary mb-2 px-2 pt-1">Theme</h3>
             <div class="list-group list-group-flush small">
-                <a href="{{ url_for('sets.list_sets', view=view, status=status) }}"
+                <a href="{{ url_for('sets.list_sets', view=view, status=status, favorite=('1' if favorite_only else None)) }}"
                    class="list-group-item list-group-item-action border-0 rounded-2 py-1 px-2 {{ 'active' if not theme }}">
                     All themes
                 </a>
                 {% for t in themes %}
-                    <a href="{{ url_for('sets.list_sets', view=view, theme=t, status=status) }}"
+                    <a href="{{ url_for('sets.list_sets', view=view, theme=t, status=status, favorite=('1' if favorite_only else None)) }}"
                        class="list-group-item list-group-item-action border-0 rounded-2 py-1 px-2 text-truncate {{ 'active' if theme == t }}">
                         {{ t }}
                     </a>
@@ -21,12 +26,12 @@
         <div class="card-body py-2 px-2">
             <h3 class="h6 text-primary mb-2 px-2 pt-1">Status</h3>
             <div class="list-group list-group-flush small">
-                <a href="{{ url_for('sets.list_sets', view=view, theme=theme) }}"
+                <a href="{{ url_for('sets.list_sets', view=view, theme=theme, favorite=('1' if favorite_only else None)) }}"
                    class="list-group-item list-group-item-action border-0 rounded-2 py-1 px-2 {{ 'active' if not status }}">
                     All statuses
                 </a>
                 {% for s in build_statuses %}
-                    <a href="{{ url_for('sets.list_sets', view=view, theme=theme, status=s) }}"
+                    <a href="{{ url_for('sets.list_sets', view=view, theme=theme, status=s, favorite=('1' if favorite_only else None)) }}"
                        class="list-group-item list-group-item-action border-0 rounded-2 py-1 px-2 text-truncate {{ 'active' if status == s }}">
                         <i class="bi {{ status_icons[s] }}"></i>
                         {{ status_labels[s] }}
