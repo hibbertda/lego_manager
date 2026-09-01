@@ -3,6 +3,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -197,6 +198,25 @@ def update_progress(set_id):
 
     current_app.db_ops.update_build_progress(set_id, max(0, build_page), build_status)
     return redirect(url_for("sets.set_detail", set_id=set_id))
+
+
+@sets_bp.route("/set/<int(signed=True):set_id>/progress/page", methods=["POST"])
+@login_required
+def update_progress_page(set_id):
+    """AJAX endpoint used by the PDF viewer to auto-save the current page as the
+    user reads instructions, without disturbing the manually-set build_status
+    (unless it's still 'not_started', which gets bumped to 'in_progress')."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+
+    payload = request.get_json(silent=True) or {}
+    build_page = payload.get("build_page", 0)
+    if not isinstance(build_page, int):
+        return jsonify(error="build_page must be an integer"), 400
+
+    current_app.db_ops.update_build_page(set_id, max(0, build_page))
+    return jsonify(ok=True, build_page=max(0, build_page))
 
 
 @sets_bp.route("/set/<int(signed=True):set_id>/delete", methods=["POST"])

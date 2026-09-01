@@ -76,13 +76,12 @@ def create_app(config_class: type = Config) -> Flask:
         # vector) are never allowed. HSTS is left to the reverse proxy/operator
         # since this app doesn't know whether it's served over HTTPS.
         #
-        # Framing is restricted to same-origin (not fully denied): set_detail.html
-        # renders instruction PDFs via <embed type="application/pdf">, and
-        # browsers' built-in PDF viewers render that inside an internal frame
-        # subject to these same headers — a blanket DENY/'none' blocks the
-        # browser's own PDF viewer from displaying same-origin files. Same-origin
-        # framing still fully prevents third-party clickjacking, the actual risk
-        # these headers exist for.
+        # Framing is restricted to same-origin (not fully denied): earlier this
+        # mattered for the browser's native <embed type="application/pdf">
+        # viewer; now instructions render via a self-hosted PDF.js canvas
+        # viewer instead, but same-origin framing is still kept as a sane
+        # default that doesn't affect legitimate use while blocking third-party
+        # clickjacking.
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "same-origin")
@@ -90,7 +89,10 @@ def create_app(config_class: type = Config) -> Flask:
             "Content-Security-Policy",
             "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; "
             "img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self'; font-src 'self'",
+            # 'wasm-unsafe-eval' (not full 'unsafe-eval') is required by
+            # PDF.js, which compiles WebAssembly modules for certain image/font
+            # codecs (e.g. JPX/JBIG2) used in instruction PDFs.
+            "script-src 'self' 'wasm-unsafe-eval'; font-src 'self'",
         )
         return response
 

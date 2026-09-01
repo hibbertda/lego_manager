@@ -11,7 +11,8 @@
     "watch:css": "sass static/src/custom-bootstrap.scss static/css/app.css --load-path=node_modules --watch --no-source-map",
     "build:js": "node -e \"require('fs').copyFileSync('node_modules/bootstrap/dist/js/bootstrap.bundle.min.js','static/js/bootstrap.bundle.min.js')\"",
     "build:assets": "node -e \"const fs=require('fs');fs.mkdirSync('static/css/fonts',{recursive:true});for (const f of fs.readdirSync('node_modules/bootstrap-icons/font/fonts')) fs.copyFileSync('node_modules/bootstrap-icons/font/fonts/'+f,'static/css/fonts/'+f);\"",
-    "build": "npm run build:css && npm run build:js && npm run build:assets"
+    "build:pdfjs": "node -e \"const fs=require('fs');fs.mkdirSync('static/js/pdfjs',{recursive:true});for (const f of ['pdf.min.mjs','pdf.worker.min.mjs']) fs.copyFileSync('node_modules/pdfjs-dist/build/'+f,'static/js/pdfjs/'+f);\"",
+    "build": "npm run build:css && npm run build:js && npm run build:assets && npm run build:pdfjs"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,6 @@
   "dependencies": {
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
-    "bootstrap-icons": "^1.13.1"
+    "pdfjs-dist": "^4.10.38"
   }
 }

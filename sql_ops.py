@@ -65,12 +65,23 @@ class DatabaseOps:
                 )
             ''')
             existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(sets)")}
-            if "build_page" not in existing_columns:
-                logger.info("Migrating sets table: adding build_page column")
-                conn.execute("ALTER TABLE sets ADD COLUMN build_page INTEGER DEFAULT 0")
-            if "build_status" not in existing_columns:
-                logger.info("Migrating sets table: adding build_status column")
-                conn.execute("ALTER TABLE sets ADD COLUMN build_status TEXT DEFAULT 'not_started'")
+            for column, ddl in (
+                ("build_page", "ALTER TABLE sets ADD COLUMN build_page INTEGER DEFAULT 0"),
+                ("build_status", "ALTER TABLE sets ADD COLUMN build_status TEXT DEFAULT 'not_started'"),
+            ):
+                if column in existing_columns:
+                    continue
+                logger.info("Migrating sets table: adding %s column", column)
+                try:
+                    conn.execute(ddl)
+                except sqlite3.OperationalError as exc:
+                    # Multiple gunicorn workers boot concurrently and each call
+                    # create_tables() independently on first startup against a
+                    # fresh DB. This PRAGMA-check-then-ALTER isn't atomic across
+                    # processes, so another worker can win the race and add the
+                    # column first — that's fine, just ignore it here.
+                    if "duplicate column name" not in str(exc):
+                        raise
 
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS brickset_settings (
@@ -151,6 +162,19 @@ class DatabaseOps:
             conn.execute(
                 "UPDATE sets SET build_page = ?, build_status = ? WHERE setID = ?",
                 (build_page, build_status, set_id),
+            )
+
+    def update_build_page(self, set_id: int, build_page: int) -> None:
+        """Update only the current page (e.g. from the PDF viewer's page-tracking),
+        leaving build_status untouched unless it's still 'not_started', in which case
+        bump it to 'in_progress' since the user has clearly started reading."""
+        logger.info("Updating build page for set ID %s: page=%s", set_id, build_page)
+        with self.create_connection() as conn:
+            conn.execute(
+                "UPDATE sets SET build_page = ?, "
+                "build_status = CASE WHEN build_status = 'not_started' THEN 'in_progress' ELSE build_status END "
+                "WHERE setID = ?",
+                (build_page, set_id),
             )
 
     def delete_set(self, set_id: int) -> bool:

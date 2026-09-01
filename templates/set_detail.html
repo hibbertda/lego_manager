@@ -78,12 +78,47 @@
         {% for pdf in set.local_instructions %}
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header small">{{ pdf.split('/')[-1] }}</div>
-                    <embed src="{{ url_for('sets.custom_static', filename=pdf) }}" type="application/pdf"
-                           class="w-100" style="height: 70vh;">
+                    <div class="card-header small d-flex justify-content-between align-items-center">
+                        <span>{{ pdf.split('/')[-1] }}</span>
+                        <span class="pdf-viewer-status text-muted"></span>
+                    </div>
+                    <div class="pdf-viewer"
+                         data-pdf-url="{{ url_for('sets.custom_static', filename=pdf) }}"
+                         data-set-id="{{ set.setID }}"
+                         data-initial-page="{{ set.build_page if loop.first else 1 }}"
+                         data-track-progress="{{ 'true' if loop.first else 'false' }}"
+                         data-progress-url="{{ url_for('sets.update_progress_page', set_id=set.setID) }}">
+                        <div class="pdf-viewer-toolbar">
+                            <button type="button" class="btn btn-sm btn-outline-secondary pdf-viewer-prev" aria-label="Previous page">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <span class="d-flex align-items-center gap-1">
+                                <input type="number" min="1" class="form-control form-control-sm pdf-viewer-page-input" aria-label="Page number">
+                                <span class="pdf-viewer-page-indicator small text-muted"></span>
+                            </span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary pdf-viewer-next" aria-label="Next page">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                            <div class="vr d-none d-sm-block"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary pdf-viewer-zoom-out" aria-label="Zoom out">
+                                <i class="bi bi-dash-lg"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary pdf-viewer-zoom-in" aria-label="Zoom in">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div class="pdf-viewer-canvas-wrap">
+                            <canvas class="pdf-viewer-canvas"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         {% endfor %}
     </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="module" src="{{ url_for('static', filename='js/pdf-viewer.js') }}"></script>
 {% endblock %}

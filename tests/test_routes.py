@@ -228,6 +228,72 @@ def test_update_progress_404_for_missing_set(admin_client):
     assert response.status_code == 404
 
 
+def test_update_progress_page_persists_via_json(app, admin_client):
+    sample = {
+        "setID": 501,
+        "number": "12346",
+        "name": "PDF Viewer Progress Test Set",
+        "year": 2024,
+        "theme": "Test",
+        "pieces": 100,
+        "local_images": [],
+        "local_instructions": [],
+    }
+    app.db_ops.insert_set_data(sample)
+
+    response = admin_client.post("/set/501/progress/page", json={"build_page": 7})
+    assert response.status_code == 200
+    assert response.get_json() == {"ok": True, "build_page": 7}
+
+    updated = app.db_ops.get_set_by_id(501)
+    assert updated["build_page"] == 7
+    # Untouched default status gets bumped from not_started to in_progress.
+    assert updated["build_status"] == "in_progress"
+
+
+def test_update_progress_page_does_not_override_existing_status(app, admin_client):
+    sample = {
+        "setID": 502,
+        "number": "12347",
+        "name": "PDF Viewer Status Preserve Test Set",
+        "year": 2024,
+        "theme": "Test",
+        "pieces": 100,
+        "local_images": [],
+        "local_instructions": [],
+    }
+    app.db_ops.insert_set_data(sample)
+    app.db_ops.update_build_progress(502, 40, "complete")
+
+    admin_client.post("/set/502/progress/page", json={"build_page": 41})
+
+    updated = app.db_ops.get_set_by_id(502)
+    assert updated["build_page"] == 41
+    assert updated["build_status"] == "complete"
+
+
+def test_update_progress_page_404_for_missing_set(admin_client):
+    response = admin_client.post("/set/999/progress/page", json={"build_page": 1})
+    assert response.status_code == 404
+
+
+def test_update_progress_page_rejects_non_integer(app, admin_client):
+    sample = {
+        "setID": 503,
+        "number": "12348",
+        "name": "PDF Viewer Validation Test Set",
+        "year": 2024,
+        "theme": "Test",
+        "pieces": 100,
+        "local_images": [],
+        "local_instructions": [],
+    }
+    app.db_ops.insert_set_data(sample)
+
+    response = admin_client.post("/set/503/progress/page", json={"build_page": "not-a-number"})
+    assert response.status_code == 400
+
+
 def test_delete_set_removes_it_and_its_files(app, admin_client, tmp_path):
     import os
 

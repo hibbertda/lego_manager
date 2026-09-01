@@ -12,7 +12,8 @@ browse your collection and re-view any set's instructions from the browser.
   Brickset isn't available, isn't configured, or you'd simply rather not use it
 - Browse your collection with pagination, list/grid views, and a theme filter sidebar
 - Search sets by name, with a predictive live-search box in the top bar
-- View a set's detail page with images and an embedded PDF viewer for instructions
+- View a set's detail page with images and a self-hosted PDF.js viewer for
+  instructions, which auto-saves reading progress (current page) as you browse
 - Track build progress (page + status) per set so you can pick up a build later
 - Remove a set (admin only)
 - Authentication: local accounts by default, with optional OIDC single sign-on
@@ -70,9 +71,31 @@ npm run build
 ```
 
 This generates `static/css/app.css` (compiled Sass, including Bootstrap +
-custom theme) and `static/js/bootstrap.bundle.min.js` (copied from
-`node_modules`), which `base.html` links to directly. Node is only needed for
-this build step — it is not required to run the app.
+custom theme), `static/js/bootstrap.bundle.min.js` (copied from
+`node_modules`), and `static/js/pdfjs/*.mjs` (Mozilla's PDF.js library,
+copied from `node_modules/pdfjs-dist`, used to render instruction PDFs inline
+— see "Instruction PDF viewer" below), all of which are self-hosted so no
+CDN requests happen at runtime. Node is only needed for this build step — it
+is not required to run the app.
+
+### Instruction PDF viewer
+
+Instruction PDFs are rendered on the set detail page with a small custom
+viewer (`static/js/pdf-viewer.js`) built on self-hosted PDF.js
+(`static/js/pdfjs/`), rather than the browser's native PDF plugin. This gives
+page navigation controls and lets the app auto-save the current page back to
+the server (`POST /set/<id>/progress/page`) as you read, so "Build progress"
+tracks where you left off without manual entry. Only the first instructions
+PDF for a set auto-saves progress; additional PDFs (multi-book sets) get the
+same viewer without progress tracking, since `build_page` is a single value
+per set.
+
+Built assets (`static/js/pdfjs/*.mjs`, `static/js/bootstrap.bundle.min.js`,
+`static/css/app.css`) are committed to the repo, matching the existing
+pattern for this project — the Docker image does not run `npm` at build
+time, it just copies the already-built `static/` tree. Re-run `npm run build`
+(or `npm run build:pdfjs` alone) and commit the result whenever you bump
+`pdfjs-dist` or change `static/src/custom-bootstrap.scss`.
 
 ## Running (development)
 
@@ -210,8 +233,11 @@ pytest -q
   guarantee (or if you scale beyond a couple of workers), configure a shared
   backend such as Redis via `Limiter(storage_uri=...)`.
 - Responses include baseline security headers (`X-Content-Type-Options:
-  nosniff`, `X-Frame-Options: DENY`, a restrictive `Content-Security-Policy`
+  nosniff`, `X-Frame-Options: SAMEORIGIN`, a restrictive `Content-Security-Policy`
   with no CDN/inline-script exceptions, and `Referrer-Policy: same-origin`).
+  Framing is same-origin rather than fully denied because the instructions
+  viewer (see below) needs it; this still fully blocks third-party
+  clickjacking, the actual risk these headers exist for.
   `Strict-Transport-Security` is intentionally not set by the app itself —
   add it at your reverse proxy once you're serving over HTTPS.
 - Manually-uploaded images and PDFs (via "Add a Set" → Manual) are validated
