@@ -60,6 +60,12 @@ body {
     min-width: 0;
 }
 
+// Cap the sets list/grid page's width so cards don't stretch too wide on
+// large monitors; centers the sidebar + content row within the main column.
+.sets-page-container {
+    max-width: 1400px;
+}
+
 // Persistent sidebar (desktop: fixed column; mobile: Bootstrap offcanvas
 // overlay triggered by the navbar's hamburger button). The wrapper itself
 // takes no width below md — the offcanvas child is fixed-positioned and
