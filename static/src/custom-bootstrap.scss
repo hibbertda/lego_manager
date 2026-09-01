@@ -78,6 +78,22 @@ body {
         height: calc(100vh - 56px);
         overflow-y: auto;
     }
+
+    // Bootstrap's responsive offcanvas becomes a plain (non-flex) block at
+    // the md breakpoint, and forces `.offcanvas-body { flex-grow: 0 }` —
+    // neither stretches to the sidebar's full height by default. Override
+    // both so `.offcanvas-body`'s flex column actually fills the sidebar,
+    // giving any `mt-auto` item within it (e.g. the pinned Admin Area link)
+    // real vertical space to expand into.
+    .app-sidebar .offcanvas-md {
+        height: 100% !important;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .app-sidebar .offcanvas-md .offcanvas-body {
+        flex-grow: 1;
+    }
 }
 
 .app-sidebar .offcanvas-body {

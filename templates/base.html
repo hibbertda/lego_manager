@@ -71,7 +71,7 @@
                         <h5 class="offcanvas-title d-flex align-items-center gap-2" id="sidebarMenuLabel"><i class="bi bi-box-seam-fill"></i> LEGO Manager</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
                     </div>
-                    <div class="offcanvas-body d-md-flex flex-column p-2 p-md-3">
+                    <div class="offcanvas-body d-flex flex-column p-2 p-md-3">
                         <ul class="nav flex-column mb-3">
                             <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint == 'sets.list_sets' %}active{% endif %}" href="{{ url_for('sets.list_sets') }}">
@@ -84,9 +84,11 @@
                                 </button>
                             </li>
                         </ul>
+                        <div class="d-none d-md-block small text-muted px-2 pt-3">
+                            LEGO Manager &mdash; a personal collection tracker.
+                        </div>
                         {% if current_user.is_admin %}
-                            <div class="sidebar-heading">Administration</div>
-                            <ul class="nav flex-column">
+                            <ul class="nav flex-column mt-auto">
                                 <li class="nav-item">
                                     <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}"
                                        href="{{ url_for('admin.users') }}">
@@ -95,9 +97,6 @@
                                 </li>
                             </ul>
                         {% endif %}
-                        <div class="mt-auto d-none d-md-block small text-muted px-2 pt-3">
-                            LEGO Manager &mdash; a personal collection tracker.
-                        </div>
                     </div>
                 </div>
             </div>
