@@ -27,6 +27,19 @@ on:
   push:
     branches:
       - main
+    # Skip the build+release entirely for changes that can't affect the
+    # image contents (docs/wiki/license/editor config, and the sibling
+    # Gitea-only workflow) — avoids a pointless rebuild+release on every
+    # doc tweak. Update this list if new non-code paths are added.
+    paths-ignore:
+      - "**/*.md"
+      - "wiki/**"
+      - "LICENSE"
+      - ".gitea/**"
+      - ".vscode/**"
+      - ".devcontainer/**"
+      - ".editorconfig"
+      - ".gitignore"
   workflow_dispatch:
     inputs:
       tag:

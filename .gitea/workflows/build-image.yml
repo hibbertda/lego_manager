@@ -17,6 +17,19 @@ on:
   push:
     branches:
       - main
+    # Skip the image build entirely for changes that can't affect the
+    # image contents (docs/wiki/license/editor config, and the sibling
+    # GitHub-only workflow) — avoids a pointless rebuild on every doc tweak.
+    # Update this list if new non-code paths are added.
+    paths-ignore:
+      - "**/*.md"
+      - "wiki/**"
+      - "LICENSE"
+      - ".github/**"
+      - ".vscode/**"
+      - ".devcontainer/**"
+      - ".editorconfig"
+      - ".gitignore"
   workflow_dispatch:
     inputs:
       tag:

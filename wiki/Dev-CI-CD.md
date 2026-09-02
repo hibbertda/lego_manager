@@ -11,8 +11,9 @@ different registries.
 in-cluster Gitea Actions runner and pushes it to the Gitea container
 registry as `gitea.thehibbs.net/xamlok/lego_manager`, tagged both `latest`
 (or a manually-chosen tag) and the short commit SHA. It runs automatically
-on every push to `main`, or on demand via Actions -> "Build lego-manager
-image" -> "Run workflow".
+on every push to `main` that touches an actual code/build-relevant path
+(see "Skipping no-op builds" below), or on demand via Actions -> "Build
+lego-manager image" -> "Run workflow".
 
 One-time setup required in the Gitea repo:
 
@@ -29,8 +30,9 @@ own runners, pushes it to the GitHub Container Registry
 (`ghcr.io/<owner>/lego_manager`) tagged `latest` and an auto-generated
 version (`v1.0.<run number>`, or a custom tag via manual dispatch), then
 creates a GitHub Release for that tag with auto-generated release notes. It
-runs automatically on every push to `main` on GitHub, or on demand via
-Actions -> "Build and release container" -> "Run workflow".
+runs automatically on every push to `main` on GitHub that touches an actual
+code/build-relevant path (see "Skipping no-op builds" below), or on demand
+via Actions -> "Build and release container" -> "Run workflow".
 
 No secrets to configure — it authenticates to `ghcr.io` with the
 auto-provisioned `GITHUB_TOKEN` (needs `contents: write` + `packages: write`
@@ -38,6 +40,16 @@ permissions, already set in the workflow). The one manual step is making the
 package public after its first run: `github.com/users/<owner>/packages` ->
 `lego_manager` -> Package settings -> Change visibility (new GHCR packages
 default to private even in a public repo).
+
+## Skipping no-op builds
+
+Both workflows use `paths-ignore` on their `push` trigger so a commit that
+only touches docs/config doesn't waste a build+release cycle: `**/*.md`,
+`wiki/**`, `LICENSE`, editor/devcontainer config, and the *other* platform's
+workflow file are all excluded. Anything else (app code, templates, static
+assets, `Dockerfile`, dependency manifests, or the workflow's own file) still
+triggers a build as normal. Manual `workflow_dispatch` runs always run
+regardless of what changed, since you're asking for a build explicitly.
 
 ## Redeploying after a new image is published
 
