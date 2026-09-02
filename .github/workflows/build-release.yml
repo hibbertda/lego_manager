@@ -1,0 +1,95 @@
+# Build the Docker image on GitHub Actions, publish it to the GitHub
+# Container Registry (ghcr.io), and cut a GitHub Release once it succeeds.
+#
+# This mirrors what .gitea/workflows/build-image.yml does against the Gitea
+# registry, but is entirely independent — it only runs against this repo's
+# own GitHub Actions and ghcr.io, and never touches the Gitea instance.
+#
+# HOW TO RUN
+#   - Automatically: on every push to main.
+#   - On demand: Actions -> "Build and release container" -> "Run workflow"
+#     (lets you override the release tag).
+#
+# VERSIONING
+#   No formal semver process exists for this project yet, so releases are
+#   auto-tagged v1.0.<run number> (monotonically increasing, always unique)
+#   unless a tag is supplied via workflow_dispatch. Bump the "1.0" prefix
+#   here manually if/when a breaking change warrants a new major/minor line.
+#
+# PACKAGE VISIBILITY
+#   New GHCR packages default to private even in a public repo. After the
+#   first run, make it public once: github.com/users/hibbertda/packages ->
+#   lego_manager -> Package settings -> Change visibility.
+
+name: Build and release container
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to use (e.g. v1.2.3). Leave blank to auto-generate.
+        required: false
+
+concurrency:
+  group: build-release-lego-manager
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # to create the GitHub Release
+  packages: write    # to push to ghcr.io
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine release tag
+        id: version
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            Container image: `${{ env.IMAGE }}:${{ steps.version.outputs.tag }}`
+
+            ```bash
+            docker pull ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+            ```
