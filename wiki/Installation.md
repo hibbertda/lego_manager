@@ -73,7 +73,7 @@ docker compose -f docker-compose.registry.yml up -d
 
 ```bash
 pip install -r requirements.txt
-gunicorn -b 0.0.0.0:8000 --workers 2 wsgi:app
+gunicorn -b 0.0.0.0:8000 --workers 2 --threads 4 --worker-class gthread --timeout 60 wsgi:app
 ```
 
 This still needs the pre-built frontend assets (`static/css/app.css`,

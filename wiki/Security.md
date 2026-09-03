@@ -13,13 +13,26 @@ Operational security posture for anyone deploying LEGO Manager.
 - Set `SESSION_COOKIE_SECURE=1` once the app is served over HTTPS (directly
   or via a reverse proxy that terminates TLS). It defaults to off so plain
   local/LAN HTTP development keeps working; it is **not** auto-detected.
+- `TRUST_PROXY_HEADERS` defaults to `1` (the app trusts one hop of
+  `X-Forwarded-Proto`/`Host`/`Port` from whatever's in front of it via
+  Werkzeug's `ProxyFix`), since this app is expected to always run behind a
+  reverse proxy. Only set it to `0` if gunicorn is ever exposed directly to
+  clients with no proxy in front — trusting these headers from an untrusted
+  client would let them spoof scheme/host. Leaving it off behind a proxy
+  (or having a proxy that doesn't set these headers) is the most common
+  cause of OIDC login failing with a redirect_uri/scheme mismatch, since
+  `url_for(..., _external=True)` would otherwise build the callback URL
+  using the proxy's plain-HTTP connection to the app instead of the
+  public HTTPS one.
 - CSRF protection is enabled (Flask-WTF) on all POST forms.
 - Login (`/login`, `/login/local`) is rate-limited (10 attempts/minute per
   IP) and the OIDC callback is rate-limited (20/minute per IP) to slow down
   brute-force/credential-stuffing attempts. This uses Flask-Limiter's default
   in-memory storage, which is **not shared across worker processes** — with
-  the default `gunicorn --workers 2` in the provided `Dockerfile`, the
-  effective limit is roughly double the configured value. For a stronger
+  the default `gunicorn --workers 2 --threads 4` in the provided
+  `Dockerfile`, the effective limit is roughly double the configured value
+  (in-memory storage is per-*process*, so it's shared across the threads
+  within a worker but not across the 2 worker processes). For a stronger
   guarantee (or if you scale beyond a couple of workers), configure a shared
   backend such as Redis via `Limiter(storage_uri=...)`.
 - Responses include baseline security headers (`X-Content-Type-Options:

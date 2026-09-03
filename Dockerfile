@@ -23,4 +23,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/login', timeout=3)" || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "--workers", "2", "wsgi:app"]
+# --threads + --worker-class gthread: sync workers (the gunicorn default)
+# handle exactly one request at a time each, so with only 2 workers, a
+# single blocking outbound call (e.g. the OIDC token/userinfo exchange with
+# an external IdP, or a slow Brickset API lookup) can tie up a worker for
+# its full round-trip. A concurrent second request (health check, another
+# user, a retried login) then has nowhere to go until a worker frees up,
+# surfacing as connection refusals/timeouts through the reverse proxy.
+# gthread gives each worker a small thread pool so those blocking calls no
+# longer block the whole worker.
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--worker-class", "gthread", "--timeout", "60", "wsgi:app"]

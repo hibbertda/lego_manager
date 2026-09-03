@@ -51,5 +51,5 @@ Visit `http://127.0.0.1:5000` — on first run you'll be redirected to
 ## Production-like run (gunicorn)
 
 ```bash
-gunicorn -b 0.0.0.0:8000 --workers 2 wsgi:app
+gunicorn -b 0.0.0.0:8000 --workers 2 --threads 4 --worker-class gthread --timeout 60 wsgi:app
 ```
