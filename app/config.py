@@ -34,7 +34,7 @@ class Config:
                     "SECRET_KEY is not set (or is still the insecure default). "
                     "Set a unique, random SECRET_KEY in your environment/.env "
                     "before running outside of FLASK_DEBUG=1. Generate one with: "
-                    "python -c \"import secrets; print(secrets.token_hex(32))\""
+                    'python -c "import secrets; print(secrets.token_hex(32))"'
                 )
         self.SECRET_KEY = secret_key
 
@@ -46,6 +46,12 @@ class Config:
         self.BRICKSET_PASSWORD = os.getenv("BRICKSET_PASSWORD")
 
         self.SETS_PER_PAGE = int(os.getenv("SETS_PER_PAGE", "10"))
+        self.MAX_CONTENT_LENGTH = int(
+            os.getenv("MAX_CONTENT_LENGTH", str(25 * 1024 * 1024))
+        )
+        self.MAX_DOWNLOAD_BYTES = int(
+            os.getenv("MAX_DOWNLOAD_BYTES", str(25 * 1024 * 1024))
+        )
 
         # Cookie/session hardening — see README "Security" section. The app
         # itself can't detect whether a reverse proxy is terminating HTTPS in
@@ -53,6 +59,8 @@ class Config:
         # local/LAN HTTP deployment still works) — but it MUST be set to "1"
         # once this is deployed behind HTTPS, or the session cookie can be
         # intercepted in transit.
-        self.SESSION_COOKIE_SECURE = _str_to_bool(os.getenv("SESSION_COOKIE_SECURE", "0"))
+        self.SESSION_COOKIE_SECURE = _str_to_bool(
+            os.getenv("SESSION_COOKIE_SECURE", "0")
+        )
         self.SESSION_COOKIE_HTTPONLY = True
         self.SESSION_COOKIE_SAMESITE = "Lax"

@@ -1,8 +1,16 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user, login_required
 
+from app.auth_ops import VALID_ROLES
 from app.decorators import admin_required
-from auth_ops import VALID_ROLES
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -68,7 +76,9 @@ def update_brickset():
         flash("An API key is required.", "error")
         return redirect(url_for("admin.brickset"))
 
-    current_app.db_ops.save_brickset_settings(api_key=api_key, username=username, password=password)
+    current_app.db_ops.save_brickset_settings(
+        api_key=api_key, username=username, password=password
+    )
     current_app.brickset_api.configure(api_key)
     flash("Brickset API settings saved.", "success")
     return redirect(url_for("admin.brickset"))
@@ -105,7 +115,12 @@ def toggle_user_active(user_id):
         return redirect(url_for("admin.users"))
 
     target = current_app.auth_ops.get_user_by_id(user_id)
-    if target and target["role"] == "admin" and not is_active and current_app.auth_ops.count_active_admins() <= 1:
+    if (
+        target
+        and target["role"] == "admin"
+        and not is_active
+        and current_app.auth_ops.count_active_admins() <= 1
+    ):
         flash("Cannot deactivate the last remaining admin.", "error")
         return redirect(url_for("admin.users"))
 
@@ -123,7 +138,11 @@ def delete_user(user_id):
         return redirect(url_for("admin.users"))
 
     target = current_app.auth_ops.get_user_by_id(user_id)
-    if target and target["role"] == "admin" and current_app.auth_ops.count_active_admins() <= 1:
+    if (
+        target
+        and target["role"] == "admin"
+        and current_app.auth_ops.count_active_admins() <= 1
+    ):
         flash("Cannot delete the last remaining admin.", "error")
         return redirect(url_for("admin.users"))
 
@@ -164,7 +183,10 @@ def update_oidc():
     issuer = request.form.get("issuer", "").strip()
     client_id = request.form.get("client_id", "").strip()
     client_secret = request.form.get("client_secret", "").strip()
-    scopes = request.form.get("scopes", "openid profile email").strip() or "openid profile email"
+    scopes = (
+        request.form.get("scopes", "openid profile email").strip()
+        or "openid profile email"
+    )
     default_role = request.form.get("default_role", "user")
     enabled = request.form.get("enabled") == "1"
     disable_local_login = request.form.get("disable_local_login") == "1"
@@ -177,7 +199,9 @@ def update_oidc():
         client_secret = existing["client_secret"]  # keep existing secret if left blank
 
     if enabled and not (issuer and client_id and client_secret):
-        flash("Issuer, client ID, and client secret are required to enable SSO.", "error")
+        flash(
+            "Issuer, client ID, and client secret are required to enable SSO.", "error"
+        )
         return redirect(url_for("admin.sso"))
 
     if disable_local_login and not enabled:

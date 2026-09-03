@@ -38,12 +38,34 @@ def test_login_with_bad_credentials_fails(admin_user, client):
 
 def test_login_with_good_credentials_succeeds(admin_user, client):
     response = client.post(
-        "/login", data={"username": "admin", "password": "adminpass123"}, follow_redirects=False
+        "/login",
+        data={"username": "admin", "password": "adminpass123"},
+        follow_redirects=False,
     )
     assert response.status_code == 302
 
     home = client.get("/", follow_redirects=True)
     assert home.status_code == 200
+
+
+def test_login_rejects_external_next_url(admin_user, client):
+    response = client.post(
+        "/login?next=https://example.invalid/",
+        data={"username": "admin", "password": "adminpass123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/"
+
+
+def test_login_accepts_local_next_url(admin_user, client):
+    response = client.post(
+        "/login?next=/setlist?view=list",
+        data={"username": "admin", "password": "adminpass123"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/setlist?view=list")
 
 
 def test_anonymous_request_redirects_to_login_when_users_exist(admin_user, client):
@@ -58,10 +80,18 @@ def test_regular_user_cannot_access_admin_config(user_client):
 
 
 def test_regular_user_cannot_delete_sets(app, user_client):
-    app.db_ops.insert_set_data({
-        "setID": 700, "number": "700", "name": "Protected Set", "year": 2024,
-        "theme": "Test", "pieces": 1, "local_images": [], "local_instructions": [],
-    })
+    app.db_ops.insert_set_data(
+        {
+            "setID": 700,
+            "number": "700",
+            "name": "Protected Set",
+            "year": 2024,
+            "theme": "Test",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
     response = user_client.post("/set/700/delete")
     assert response.status_code == 403
     assert app.db_ops.get_set_by_id(700) is not None
@@ -109,7 +139,12 @@ def test_regular_user_cannot_access_brickset_page(user_client):
 def test_admin_can_save_brickset_settings(app, admin_client):
     response = admin_client.post(
         "/admin/brickset",
-        data={"csrf_token": "", "api_key": "test-key-123", "username": "bob", "password": "secret"},
+        data={
+            "csrf_token": "",
+            "api_key": "test-key-123",
+            "username": "bob",
+            "password": "secret",
+        },
         follow_redirects=True,
     )
     assert response.status_code == 200
@@ -212,7 +247,9 @@ def test_local_login_post_rejected_on_main_login_when_disabled(app, admin_user, 
         disable_local_login=True,
     )
     response = client.post(
-        "/login", data={"username": "admin", "password": "adminpass123"}, follow_redirects=False
+        "/login",
+        data={"username": "admin", "password": "adminpass123"},
+        follow_redirects=False,
     )
     assert response.status_code == 302
     # Should not be logged in.
@@ -221,7 +258,9 @@ def test_local_login_post_rejected_on_main_login_when_disabled(app, admin_user, 
     assert "/login" in home.headers["Location"]
 
 
-def test_fallback_local_login_still_works_when_main_form_disabled(app, admin_user, client):
+def test_fallback_local_login_still_works_when_main_form_disabled(
+    app, admin_user, client
+):
     app.auth_ops.save_oidc_provider(
         name="Authentik",
         issuer="https://auth.example.com/application/o/lego/",
@@ -235,7 +274,9 @@ def test_fallback_local_login_still_works_when_main_form_disabled(app, admin_use
     assert b'name="username"' in response.data
 
     response = client.post(
-        "/login/local", data={"username": "admin", "password": "adminpass123"}, follow_redirects=False
+        "/login/local",
+        data={"username": "admin", "password": "adminpass123"},
+        follow_redirects=False,
     )
     assert response.status_code == 302
 

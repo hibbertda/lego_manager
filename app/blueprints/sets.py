@@ -1,3 +1,6 @@
+import os
+import shutil
+
 from flask import (
     Blueprint,
     abort,
@@ -11,14 +14,11 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
-from werkzeug.utils import safe_join, secure_filename
-import os
-import shutil
-
 from PIL import Image, UnidentifiedImageError
+from werkzeug.utils import safe_join, secure_filename
 
 from app.decorators import admin_required
-from sql_ops import VALID_BUILD_STATUSES
+from app.sql_ops import VALID_BUILD_STATUSES
 
 sets_bp = Blueprint("sets", __name__)
 
@@ -83,7 +83,11 @@ def add_set():
         flash("Set number is required.", "error")
         return redirect(url_for("sets.list_sets"))
 
-    combined_data = current_app.brickset_api.get_combined_data(set_number)
+    combined_data = current_app.brickset_api.get_combined_data(
+        set_number,
+        base_dir=current_app.config["SETS_DIR"],
+        max_bytes=current_app.config["MAX_DOWNLOAD_BYTES"],
+    )
     if combined_data:
         current_app.db_ops.insert_combined_data(combined_data)
         return redirect(url_for("sets.list_sets"))
@@ -141,7 +145,9 @@ def add_set_manual():
     local_instructions = []
     for pdf_file in request.files.getlist("instructions"):
         if pdf_file and pdf_file.filename:
-            if not _has_allowed_extension(pdf_file.filename, ALLOWED_INSTRUCTION_EXTENSIONS):
+            if not _has_allowed_extension(
+                pdf_file.filename, ALLOWED_INSTRUCTION_EXTENSIONS
+            ):
                 flash("Instructions must be PDF files.", "error")
                 return redirect(url_for("sets.list_sets"))
             if not _is_valid_pdf(pdf_file):
@@ -259,7 +265,9 @@ def delete_set(set_id):
 
     deleted = current_app.db_ops.delete_set(set_id)
     if deleted:
-        set_dir = os.path.join(current_app.config["SETS_DIR"], str(set_data["setNumber"]))
+        set_dir = os.path.join(
+            current_app.config["SETS_DIR"], str(set_data["setNumber"])
+        )
         if os.path.isdir(set_dir):
             shutil.rmtree(set_dir, ignore_errors=True)
 
@@ -270,9 +278,11 @@ def delete_set(set_id):
 @login_required
 def search():
     query = request.args.get("query", "")
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int) or 1)
     per_page = current_app.config["SETS_PER_PAGE"]
-    sets_data, total = current_app.db_ops.search_sets(query, page=page, per_page=per_page)
+    sets_data, total = current_app.db_ops.search_sets(
+        query, page=page, per_page=per_page
+    )
     total_pages = max(1, (total + per_page - 1) // per_page)
     return render_template(
         "search_results.html",
@@ -314,7 +324,7 @@ def search_suggest():
 @sets_bp.route("/setlist")
 @login_required
 def list_sets():
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int) or 1)
     view = request.args.get("view", "grid")
     if view not in ("list", "grid"):
         view = "grid"

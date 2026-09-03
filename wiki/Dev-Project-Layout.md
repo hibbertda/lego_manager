@@ -1,7 +1,10 @@
 # Dev: Project Layout
 
 ```
-app/                Flask application factory + config + blueprints
+app/                Flask application factory, services, config + blueprints
+  auth_ops.py           SQLite data access layer (users, OIDC provider config)
+  brickset_ops.py       Brickset API client (with retries/timeouts)
+  sql_ops.py            SQLite data access layer (sets)
   decorators.py         @admin_required view decorator
   oidc.py               Runtime-configurable Authlib OIDC client wrapper
   user.py               Flask-Login User wrapper
@@ -10,9 +13,6 @@ app/                Flask application factory + config + blueprints
   blueprints/auth.py    /login, /logout, /setup, OIDC login/callback
   blueprints/admin.py   /admin/users, /admin/sso, /admin/brickset — server settings UI
 templates/          Jinja templates (Bootstrap 5, locally compiled — see static/)
-sql_ops.py          SQLite data access layer (sets)
-auth_ops.py         SQLite data access layer (users, OIDC provider config)
-brickset_ops.py      Brickset API client (with retries/timeouts)
 cli.py              `python cli.py add-set <number>` for scripted imports
 wsgi.py             Dev server entrypoint / gunicorn target
 tests/              pytest suite (DB layer + route + auth smoke tests)

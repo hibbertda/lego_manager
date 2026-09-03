@@ -3,7 +3,7 @@ import pytest
 
 @pytest.fixture()
 def db_ops(tmp_path):
-    from sql_ops import DatabaseOps
+    from app.sql_ops import DatabaseOps
 
     db_path = tmp_path / "test_lego.db"
     return DatabaseOps(str(db_path))
@@ -22,7 +22,9 @@ def app(tmp_path, monkeypatch):
     from app.config import Config
 
     flask_app = create_app(Config)
-    flask_app.config.update(TESTING=True, WTF_CSRF_ENABLED=False, RATELIMIT_ENABLED=False)
+    flask_app.config.update(
+        TESTING=True, WTF_CSRF_ENABLED=False, RATELIMIT_ENABLED=False
+    )
     return flask_app
 
 
