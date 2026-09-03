@@ -1,4 +1,4 @@
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from flask import (
     Blueprint,
@@ -19,8 +19,9 @@ auth_bp = Blueprint("auth", __name__)
 
 def _safe_next_url(value: str | None) -> str:
     if value:
-        parsed = urlsplit(value)
-        if not parsed.scheme and not parsed.netloc and value.startswith("/"):
+        target = urlsplit(urljoin(request.host_url, value))
+        host = urlsplit(request.host_url)
+        if target.scheme in {"http", "https"} and target.netloc == host.netloc:
             return value
     return url_for("main.index")
 

@@ -71,7 +71,8 @@ class BricksetAPI:
     def __init__(self, api_key: Optional[str]):
         self.api_key = api_key or ""
         self.session = _build_session()
-        self._userhash_cache: dict[str, str] = {}
+        self._userhash_cache: dict[bytes, str] = {}
+        self._cache_salt = os.urandom(16)
 
     def configure(self, api_key: str) -> None:
         """Update the API key at runtime (e.g. after an admin saves new settings)."""
@@ -94,7 +95,13 @@ class BricksetAPI:
 
     def get_login(self, username: str, password: str) -> Optional[str]:
         """Log in and return a userhash, reusing a cached hash for the same credentials."""
-        cache_key = hashlib.sha256(f"{username}:{password}".encode()).hexdigest()
+        cache_key = hashlib.scrypt(
+            f"{username}:{password}".encode(),
+            salt=self._cache_salt,
+            n=2**14,
+            r=8,
+            p=1,
+        )
         if cache_key in self._userhash_cache:
             logger.info("Reusing cached userhash for user: %s", username)
             return self._userhash_cache[cache_key]
