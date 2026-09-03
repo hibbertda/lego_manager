@@ -64,3 +64,16 @@ class Config:
         )
         self.SESSION_COOKIE_HTTPONLY = True
         self.SESSION_COOKIE_SAMESITE = "Lax"
+
+        # Same rationale as SESSION_COOKIE_SECURE above: when a reverse proxy
+        # terminates TLS in front of this app, Flask/Werkzeug only see the
+        # proxy's plain-HTTP connection unless the proxy's X-Forwarded-*
+        # headers are explicitly trusted. Without this, url_for(..., _external=True)
+        # (used to build the OIDC redirect_uri) generates the wrong scheme/host
+        # (e.g. "http://internal-host:8000/..." instead of
+        # "https://public-domain/..."), which the OIDC provider then rejects
+        # as a redirect_uri mismatch. Defaults to "1" since this app is always
+        # run behind a reverse proxy in this deployment; set to "0" only if
+        # ever run with clients hitting gunicorn directly (trusting these
+        # headers from an untrusted client would allow host/scheme spoofing).
+        self.TRUST_PROXY_HEADERS = _str_to_bool(os.getenv("TRUST_PROXY_HEADERS", "1"))

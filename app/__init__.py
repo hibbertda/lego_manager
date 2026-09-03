@@ -12,6 +12,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, current_user
 from flask_wtf import CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.auth_ops import AuthOps
 from app.brickset_ops import BricksetAPI
@@ -47,6 +48,16 @@ def create_app(config_class: type = Config) -> Flask:
     app.config.from_object(config_class())
     app.config["DATABASE_PATH"] = _resolve_path(app.config["DATABASE_PATH"])
     app.config["SETS_DIR"] = _resolve_path(app.config["SETS_DIR"])
+
+    if app.config["TRUST_PROXY_HEADERS"]:
+        # Trust exactly one hop of X-Forwarded-Proto/Host/Port/Prefix from the
+        # reverse proxy in front of this app, so url_for(_external=True) (the
+        # OIDC redirect_uri, email links, etc.) reflects the public
+        # scheme/host instead of the internal gunicorn bind address. See
+        # Config.TRUST_PROXY_HEADERS for why this defaults to off.
+        app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
+            app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1
+        )
 
     logging.basicConfig(level=logging.DEBUG if app.config["DEBUG"] else logging.INFO)
 
