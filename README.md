@@ -62,6 +62,10 @@ locally under [`wiki/`](wiki/) in this repo):
 
 ```bash
 pytest -q
+# optional quality checks
+ruff check .
+ruff format --check .
+mypy app cli.py
 ```
 
 ## License

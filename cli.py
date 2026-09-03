@@ -3,6 +3,7 @@
 Usage:
     python cli.py add-set 75386
 """
+
 from __future__ import annotations
 
 import logging
@@ -13,9 +14,9 @@ from dotenv import load_dotenv
 # Load .env before Config evaluates its os.getenv() defaults at import time.
 load_dotenv()
 
+from app.brickset_ops import BricksetAPI
 from app.config import Config
-from brickset_ops import BricksetAPI
-from sql_ops import DatabaseOps
+from app.sql_ops import DatabaseOps
 
 
 @click.group()
@@ -32,9 +33,13 @@ def add_set(set_number: str):
     brickset_api = BricksetAPI(config.BRICKSET_API_KEY)
     db_ops = DatabaseOps(config.DATABASE_PATH)
 
-    combined_data = brickset_api.get_combined_data(set_number)
+    combined_data = brickset_api.get_combined_data(
+        set_number, base_dir=config.SETS_DIR, max_bytes=config.MAX_DOWNLOAD_BYTES
+    )
     if not combined_data:
-        raise click.ClickException(f"Failed to retrieve data for set number: {set_number}")
+        raise click.ClickException(
+            f"Failed to retrieve data for set number: {set_number}"
+        )
 
     db_ops.insert_combined_data(combined_data)
     click.echo(f"Set {set_number} added successfully.")

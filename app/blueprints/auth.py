@@ -5,7 +5,6 @@ from flask import (
     redirect,
     render_template,
     request,
-    session,
     url_for,
 )
 from flask_login import current_user, login_required, login_user, logout_user
@@ -14,6 +13,15 @@ from app import limiter
 from app.user import User
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _safe_next_url(_value: str | None) -> str:
+    """Return the fixed post-login landing page.
+
+    Deliberately do not honor a caller-supplied URL: even same-origin redirect
+    validation can be bypassed by parser differences across proxies and clients.
+    """
+    return url_for("main.index")
 
 
 @auth_bp.route("/setup", methods=["GET", "POST"])
@@ -38,7 +46,9 @@ def setup():
         elif len(password) < 8:
             flash("Password must be at least 8 characters.", "error")
         else:
-            user_id = current_app.auth_ops.create_local_user(username, password, role="admin")
+            user_id = current_app.auth_ops.create_local_user(
+                username, password, role="admin"
+            )
             login_user(User(current_app.auth_ops.get_user_by_id(user_id)))
             flash("Admin account created. Welcome!", "success")
             return redirect(url_for("main.index"))
@@ -63,7 +73,10 @@ def login():
         if local_disabled:
             # Local login page is disabled while SSO is active; the fallback
             # route at /login/local remains available for break-glass access.
-            flash("Local login is disabled. Use single sign-on, or the fallback login if needed.", "error")
+            flash(
+                "Local login is disabled. Use single sign-on, or the fallback login if needed.",
+                "error",
+            )
             return redirect(url_for("auth.login"))
 
         username = request.form.get("username", "").strip()
@@ -71,8 +84,7 @@ def login():
         user_data = current_app.auth_ops.verify_local_login(username, password)
         if user_data:
             login_user(User(user_data))
-            next_url = request.args.get("next") or url_for("main.index")
-            return redirect(next_url)
+            return redirect(_safe_next_url(request.args.get("next")))
         flash("Invalid username or password.", "error")
 
     return render_template(
@@ -102,8 +114,7 @@ def local_login():
         user_data = current_app.auth_ops.verify_local_login(username, password)
         if user_data:
             login_user(User(user_data))
-            next_url = request.args.get("next") or url_for("main.index")
-            return redirect(next_url)
+            return redirect(_safe_next_url(request.args.get("next")))
         flash("Invalid username or password.", "error")
 
     return render_template(

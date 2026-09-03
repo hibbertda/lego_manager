@@ -13,11 +13,11 @@ from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, current_user
 from flask_wtf import CSRFProtect
 
+from app.auth_ops import AuthOps
+from app.brickset_ops import BricksetAPI
 from app.config import Config
 from app.oidc import OIDCManager
-from auth_ops import AuthOps
-from brickset_ops import BricksetAPI
-from sql_ops import DatabaseOps
+from app.sql_ops import DatabaseOps
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -110,13 +110,15 @@ def create_app(config_class: type = Config) -> Flask:
         # Single source of truth for build_status display (badge color/icon,
         # dropdown labels, sidebar status filter) — see BUILD_STATUS_META in
         # sql_ops.py. Exposed globally so templates don't each redefine it.
-        from sql_ops import VALID_BUILD_STATUSES, BUILD_STATUS_META
+        from app.sql_ops import BUILD_STATUS_META, VALID_BUILD_STATUSES
 
         return {
             "build_statuses": VALID_BUILD_STATUSES,
             "status_labels": {k: v["label"] for k, v in BUILD_STATUS_META.items()},
             "status_icons": {k: v["icon"] for k, v in BUILD_STATUS_META.items()},
-            "status_badge_classes": {k: v["badge_class"] for k, v in BUILD_STATUS_META.items()},
+            "status_badge_classes": {
+                k: v["badge_class"] for k, v in BUILD_STATUS_META.items()
+            },
         }
 
     @login_manager.user_loader
@@ -130,8 +132,12 @@ def create_app(config_class: type = Config) -> Flask:
     def _require_login():
         # Endpoints reachable without an authenticated session.
         open_endpoints = {
-            "auth.login", "auth.setup", "auth.oidc_login", "auth.oidc_callback",
-            "auth.local_login", "static",
+            "auth.login",
+            "auth.setup",
+            "auth.oidc_login",
+            "auth.oidc_callback",
+            "auth.local_login",
+            "static",
         }
         endpoint = request.endpoint
         if endpoint is None or endpoint in open_endpoints:
@@ -155,4 +161,3 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(admin_bp)
 
     return app
-

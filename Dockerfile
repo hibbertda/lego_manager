@@ -19,6 +19,8 @@ RUN apt-get update \
 
 ENV FLASK_DEBUG=0
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/login', timeout=3)" || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "--workers", "2", "wsgi:app"]
