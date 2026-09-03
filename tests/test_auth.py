@@ -58,14 +58,14 @@ def test_login_rejects_external_next_url(admin_user, client):
     assert response.headers["Location"] == "/"
 
 
-def test_login_accepts_local_next_url(admin_user, client):
+def test_login_ignores_local_next_url(admin_user, client):
     response = client.post(
         "/login?next=/setlist?view=list",
         data={"username": "admin", "password": "adminpass123"},
         follow_redirects=False,
     )
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/setlist?view=list")
+    assert response.headers["Location"] == "/"
 
 
 def test_anonymous_request_redirects_to_login_when_users_exist(admin_user, client):

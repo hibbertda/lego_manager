@@ -1,5 +1,3 @@
-from urllib.parse import urljoin, urlsplit
-
 from flask import (
     Blueprint,
     current_app,
@@ -17,12 +15,12 @@ from app.user import User
 auth_bp = Blueprint("auth", __name__)
 
 
-def _safe_next_url(value: str | None) -> str:
-    if value:
-        target = urlsplit(urljoin(request.host_url, value))
-        host = urlsplit(request.host_url)
-        if target.scheme in {"http", "https"} and target.netloc == host.netloc:
-            return value
+def _safe_next_url(_value: str | None) -> str:
+    """Return the fixed post-login landing page.
+
+    Deliberately do not honor a caller-supplied URL: even same-origin redirect
+    validation can be bypassed by parser differences across proxies and clients.
+    """
     return url_for("main.index")
 
 
