@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 *.db
+*.db-shm
+*.db-wal
 data/
 sets/
 node_modules/
