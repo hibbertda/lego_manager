@@ -49,8 +49,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Unlike GitHub's hosted ubuntu-latest runners, the act-runner image
+      # behind Gitea's "ubuntu-latest" label doesn't ship Python — install it
+      # explicitly (same apt-based approach the build job already uses below
+      # for the Docker CLI). Use a venv rather than pip installing into the
+      # system Python, since recent Debian/Ubuntu refuse system-wide pip
+      # installs (PEP 668 "externally-managed-environment").
+      - name: Install Python
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3 python3-venv
       - name: Install and validate
         run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
           pip install -r requirements.txt -r requirements-dev.txt
           ruff check .
           ruff format --check .
