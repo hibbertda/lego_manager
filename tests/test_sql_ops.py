@@ -179,6 +179,58 @@ def test_list_sets_filters_by_theme(db_ops):
     assert results[0]["setID"] == 2
 
 
+def test_list_sets_default_sort_is_name_ascending(db_ops):
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=1, name="Zebra Set", year=2020, theme="A")
+    )
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=2, name="Apple Set", year=2022, theme="B")
+    )
+
+    results, _ = db_ops.list_sets()
+
+    assert [r["setID"] for r in results] == [2, 1]
+
+
+def test_list_sets_sort_by_year_is_newest_first(db_ops):
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=1, name="A Set", year=2015, theme="A")
+    )
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=2, name="B Set", year=2023, theme="B")
+    )
+
+    results, _ = db_ops.list_sets(sort="year")
+
+    assert [r["setID"] for r in results] == [2, 1]
+
+
+def test_list_sets_sort_by_theme_ascending(db_ops):
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=1, name="A Set", year=2020, theme="Technic")
+    )
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=2, name="B Set", year=2020, theme="Icons")
+    )
+
+    results, _ = db_ops.list_sets(sort="theme")
+
+    assert [r["setID"] for r in results] == [2, 1]
+
+
+def test_list_sets_invalid_sort_falls_back_to_default(db_ops):
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=1, name="Zebra Set", year=2020, theme="A")
+    )
+    db_ops.insert_set_data(
+        dict(SAMPLE_SET, setID=2, name="Apple Set", year=2022, theme="B")
+    )
+
+    results, _ = db_ops.list_sets(sort="not-a-real-option")
+
+    assert [r["setID"] for r in results] == [2, 1]
+
+
 def test_normalizes_legacy_prefixed_paths_read_back_correctly(db_ops):
     # Simulate a row already containing the (buggy) 'sets/' prefix, as older
     # versions of the app wrote for local_instructions.

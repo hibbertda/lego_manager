@@ -367,6 +367,52 @@ def test_list_sets_view_toggle_and_theme_filter(app, admin_client):
     assert b"Set A" not in filtered_response.data
 
 
+def test_list_sets_sort_option_orders_results_and_falls_back_when_invalid(
+    app, admin_client
+):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 611,
+            "number": "1",
+            "name": "Zebra Set",
+            "year": 2015,
+            "theme": "Star Wars",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.insert_set_data(
+        {
+            "setID": 612,
+            "number": "2",
+            "name": "Apple Set",
+            "year": 2023,
+            "theme": "Technic",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    year_response = admin_client.get("/setlist?sort=year")
+    assert year_response.status_code == 200
+    assert year_response.data.index(b"Apple Set") < year_response.data.index(
+        b"Zebra Set"
+    )
+
+    default_response = admin_client.get("/setlist")
+    assert default_response.data.index(b"Apple Set") < default_response.data.index(
+        b"Zebra Set"
+    )
+
+    bogus_response = admin_client.get("/setlist?sort=bogus")
+    assert bogus_response.status_code == 200
+    assert bogus_response.data.index(b"Apple Set") < bogus_response.data.index(
+        b"Zebra Set"
+    )
+
+
 def test_list_sets_defaults_to_grid_view(app, admin_client):
     app.db_ops.insert_set_data(
         {

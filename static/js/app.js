@@ -4,6 +4,18 @@
 // `script-src 'unsafe-inline'` exception.
 
 (function () {
+    // Generic auto-submit for filter/sort <select> controls: avoids inline
+    // onchange="" handlers (disallowed under our strict CSP) by delegating a
+    // change listener that submits the control's enclosing <form>.
+    document.addEventListener('change', function (event) {
+        const control = event.target.closest('[data-auto-submit]');
+        if (control) {
+            control.closest('form').submit();
+        }
+    });
+})();
+
+(function () {
     const autoRadio = document.getElementById('addSetMethodAuto');
     const manualRadio = document.getElementById('addSetMethodManual');
     const autoPane = document.getElementById('addSetAutoPane');

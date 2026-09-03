@@ -25,6 +25,23 @@ SET_COLUMNS = (
 
 VALID_BUILD_STATUSES = ("not_started", "in_progress", "complete", "storage")
 
+# Whitelisted ORDER BY clauses for the sets list "Sort by" control — keyed by
+# the query-string value so untrusted input never reaches raw SQL string
+# building. Each includes setID as a final tiebreaker for stable pagination.
+SORT_OPTIONS = {
+    "name": "name COLLATE NOCASE ASC, setID ASC",
+    "year": "year DESC, name COLLATE NOCASE ASC, setID ASC",
+    "theme": "theme COLLATE NOCASE ASC, name COLLATE NOCASE ASC, setID ASC",
+}
+DEFAULT_SORT = "name"
+
+# Human-readable labels for the "Sort by" dropdown, in display order.
+SORT_LABELS = {
+    "name": "Name (A-Z)",
+    "year": "Year released (newest first)",
+    "theme": "Theme (A-Z)",
+}
+
 # Single source of truth for how each build_status renders in the UI (badge
 # color/icon on set list/grid cards, dropdown labels, and the sidebar status
 # filter) — templates pull this via the status_labels/status_icons/
@@ -358,6 +375,7 @@ class DatabaseOps:
         theme: Optional[str] = None,
         build_status: Optional[str] = None,
         favorite_only: bool = False,
+        sort: Optional[str] = None,
     ) -> tuple[list[dict[str, Any]], int]:
         offset = (page - 1) * per_page
         conditions = []
@@ -371,10 +389,11 @@ class DatabaseOps:
         if favorite_only:
             conditions.append("favorite = 1")
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        order_by = SORT_OPTIONS.get(sort or DEFAULT_SORT, SORT_OPTIONS[DEFAULT_SORT])
         with self.create_connection() as conn:
             cursor = conn.execute(
                 f"SELECT {', '.join(SET_COLUMNS)} FROM sets {where_clause} "
-                "ORDER BY name COLLATE NOCASE, setID LIMIT ? OFFSET ?",
+                f"ORDER BY {order_by} LIMIT ? OFFSET ?",
                 (*params, per_page, offset),
             )
             rows = cursor.fetchall()

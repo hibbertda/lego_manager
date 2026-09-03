@@ -18,7 +18,7 @@ from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import safe_join, secure_filename
 
 from app.decorators import admin_required
-from app.sql_ops import VALID_BUILD_STATUSES
+from app.sql_ops import DEFAULT_SORT, SORT_LABELS, VALID_BUILD_STATUSES
 
 sets_bp = Blueprint("sets", __name__)
 
@@ -333,6 +333,9 @@ def list_sets():
     if build_status not in VALID_BUILD_STATUSES:
         build_status = None
     favorite_only = request.args.get("favorite") == "1"
+    sort = request.args.get("sort") or DEFAULT_SORT
+    if sort not in SORT_LABELS:
+        sort = DEFAULT_SORT
     per_page = current_app.config["SETS_PER_PAGE"]
     sets_data, total = current_app.db_ops.list_sets(
         page=page,
@@ -340,6 +343,7 @@ def list_sets():
         theme=theme,
         build_status=build_status,
         favorite_only=favorite_only,
+        sort=sort,
     )
     total_pages = max(1, (total + per_page - 1) // per_page)
     themes = current_app.db_ops.get_distinct_themes()
@@ -353,6 +357,8 @@ def list_sets():
         status=build_status,
         favorite_only=favorite_only,
         themes=themes,
+        sort=sort,
+        sort_labels=SORT_LABELS,
     )
 
 
