@@ -29,7 +29,8 @@ class OIDCManager:
                 name="oidc",
                 client_id=provider["client_id"],
                 client_secret=provider["client_secret"],
-                server_metadata_url=provider["issuer"].rstrip("/") + "/.well-known/openid-configuration",
+                server_metadata_url=provider["issuer"].rstrip("/")
+                + "/.well-known/openid-configuration",
                 client_kwargs={"scope": provider["scopes"] or "openid profile email"},
             )
             self._registered = True

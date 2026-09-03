@@ -12,13 +12,27 @@ VALID_ROLES = ("admin", "user")
 VALID_AUTH_PROVIDERS = ("local", "oidc")
 
 USER_COLUMNS = (
-    "id", "username", "email", "password_hash", "role",
-    "auth_provider", "oidc_subject", "is_active", "created_at",
+    "id",
+    "username",
+    "email",
+    "password_hash",
+    "role",
+    "auth_provider",
+    "oidc_subject",
+    "is_active",
+    "created_at",
 )
 
 PROVIDER_COLUMNS = (
-    "id", "name", "issuer", "client_id", "client_secret",
-    "scopes", "enabled", "default_role", "disable_local_login",
+    "id",
+    "name",
+    "issuer",
+    "client_id",
+    "client_secret",
+    "scopes",
+    "enabled",
+    "default_role",
+    "disable_local_login",
 )
 
 
@@ -48,12 +62,15 @@ class AuthOps:
         self.create_tables()
 
     def create_connection(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_name)
+        conn = sqlite3.connect(self.db_name, timeout=30)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 30000")
+        return conn
 
     def create_tables(self) -> None:
         logger.info("Creating auth tables if they do not exist")
         with self.create_connection() as conn:
-            conn.execute('''
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
@@ -65,8 +82,8 @@ class AuthOps:
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            ''')
-            conn.execute('''
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS oidc_providers (
                     id INTEGER PRIMARY KEY CHECK (id = 1),
                     name TEXT NOT NULL DEFAULT 'OIDC Provider',
@@ -78,9 +95,11 @@ class AuthOps:
                     default_role TEXT NOT NULL DEFAULT 'user',
                     disable_local_login INTEGER NOT NULL DEFAULT 0
                 )
-            ''')
+            """)
 
-            existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(oidc_providers)")}
+            existing_columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(oidc_providers)")
+            }
             if "disable_local_login" not in existing_columns:
                 conn.execute(
                     "ALTER TABLE oidc_providers ADD COLUMN disable_local_login INTEGER NOT NULL DEFAULT 0"
@@ -92,7 +111,13 @@ class AuthOps:
         with self.create_connection() as conn:
             return conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None
 
-    def create_local_user(self, username: str, password: str, role: str = "user", email: Optional[str] = None) -> int:
+    def create_local_user(
+        self,
+        username: str,
+        password: str,
+        role: str = "user",
+        email: Optional[str] = None,
+    ) -> int:
         if role not in VALID_ROLES:
             raise ValueError(f"Invalid role: {role!r}")
         password_hash = generate_password_hash(password)
@@ -102,9 +127,13 @@ class AuthOps:
                 "VALUES (?, ?, ?, ?, 'local')",
                 (username, email, password_hash, role),
             )
+            if cursor.lastrowid is None:
+                raise RuntimeError("Failed to create user")
             return cursor.lastrowid
 
-    def get_or_create_oidc_user(self, oidc_subject: str, username: str, email: Optional[str], default_role: str) -> dict[str, Any]:
+    def get_or_create_oidc_user(
+        self, oidc_subject: str, username: str, email: Optional[str], default_role: str
+    ) -> dict[str, Any]:
         """Find an existing OIDC-linked user by subject, or create one."""
         with self.create_connection() as conn:
             row = conn.execute(
@@ -120,7 +149,12 @@ class AuthOps:
                 (username, email, default_role, oidc_subject),
             )
             user_id = cursor.lastrowid
-        return self.get_user_by_id(user_id)
+        if user_id is None:
+            raise RuntimeError("Failed to create OIDC user")
+        user = self.get_user_by_id(user_id)
+        if user is None:
+            raise RuntimeError("Created OIDC user could not be loaded")
+        return user
 
     def get_user_by_id(self, user_id: int) -> Optional[dict[str, Any]]:
         with self.create_connection() as conn:
@@ -132,11 +166,14 @@ class AuthOps:
     def get_user_by_username(self, username: str) -> Optional[dict[str, Any]]:
         with self.create_connection() as conn:
             row = conn.execute(
-                f"SELECT {', '.join(USER_COLUMNS)} FROM users WHERE username = ?", (username,)
+                f"SELECT {', '.join(USER_COLUMNS)} FROM users WHERE username = ?",
+                (username,),
             ).fetchone()
         return _user_row_to_dict(row) if row else None
 
-    def verify_local_login(self, username: str, password: str) -> Optional[dict[str, Any]]:
+    def verify_local_login(
+        self, username: str, password: str
+    ) -> Optional[dict[str, Any]]:
         """Return the user dict if username/password match an active local account."""
         with self.create_connection() as conn:
             row = conn.execute(
@@ -175,7 +212,9 @@ class AuthOps:
 
     def set_user_active(self, user_id: int, is_active: bool) -> None:
         with self.create_connection() as conn:
-            conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (int(is_active), user_id))
+            conn.execute(
+                "UPDATE users SET is_active = ? WHERE id = ?", (int(is_active), user_id)
+            )
 
     def delete_user(self, user_id: int) -> bool:
         with self.create_connection() as conn:
@@ -206,7 +245,7 @@ class AuthOps:
             raise ValueError(f"Invalid default_role: {default_role!r}")
         with self.create_connection() as conn:
             conn.execute(
-                '''
+                """
                 INSERT INTO oidc_providers
                     (id, name, issuer, client_id, client_secret, scopes, enabled, default_role, disable_local_login)
                 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -215,9 +254,15 @@ class AuthOps:
                     client_secret=excluded.client_secret, scopes=excluded.scopes,
                     enabled=excluded.enabled, default_role=excluded.default_role,
                     disable_local_login=excluded.disable_local_login
-                ''',
+                """,
                 (
-                    name, issuer, client_id, client_secret, scopes,
-                    int(enabled), default_role, int(disable_local_login),
+                    name,
+                    issuer,
+                    client_id,
+                    client_secret,
+                    scopes,
+                    int(enabled),
+                    default_role,
+                    int(disable_local_login),
                 ),
             )

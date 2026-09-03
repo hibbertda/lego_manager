@@ -1,6 +1,5 @@
 import json
 
-
 SAMPLE_SET = {
     "setID": 111,
     "number": "75386",
@@ -10,7 +9,9 @@ SAMPLE_SET = {
     "theme": "Star Wars",
     "pieces": 500,
     "launchDate": "2024-01-01T00:00:00Z",
-    "instructions": [{"URL": "https://www.lego.com/cdn/product-assets/product.bi.core.pdf/1234.pdf"}],
+    "instructions": [
+        {"URL": "https://www.lego.com/cdn/product-assets/product.bi.core.pdf/1234.pdf"}
+    ],
     "local_images": ["sets/75386/images/75386-1.jpg"],
     "local_instructions": ["sets/75386/instructions/1234.pdf"],
 }
@@ -130,6 +131,12 @@ def test_list_sets_pagination(db_ops):
     assert total == 15
     assert len(page1) == 10
     assert len(page2) == 5
+    assert [item["name"] for item in page1] == sorted(item["name"] for item in page1)
+
+
+def test_manual_set_ids_are_unique_and_negative(db_ops):
+    ids = {db_ops.get_next_manual_set_id() for _ in range(3)}
+    assert ids == {-1, -2, -3}
 
 
 def test_search_sets_filters_by_name(db_ops):
@@ -180,8 +187,13 @@ def test_normalizes_legacy_prefixed_paths_read_back_correctly(db_ops):
         conn.execute(
             "INSERT INTO sets (setID, setNumber, name, local_images, local_instructions) "
             "VALUES (?, ?, ?, ?, ?)",
-            (42, 75350, "Legacy Set", json.dumps(["sets/75350/images/x.jpg"]),
-             json.dumps(["sets/75350/instructions/y.pdf"])),
+            (
+                42,
+                75350,
+                "Legacy Set",
+                json.dumps(["sets/75350/images/x.jpg"]),
+                json.dumps(["sets/75350/instructions/y.pdf"]),
+            ),
         )
     conn.close()
 

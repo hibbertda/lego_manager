@@ -31,7 +31,20 @@ env:
   IMAGE: gitea.thehibbs.net/xamlok/lego_manager
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install and validate
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+          ruff check .
+          ruff format --check .
+          pytest -q
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     env:
       # The act-runner injects --add-host=docker:host-gateway into job
