@@ -255,6 +255,88 @@ def toggle_favorite(set_id):
     return jsonify(ok=True, favorite=favorite)
 
 
+@sets_bp.route("/set/<int(signed=True):set_id>/edit", methods=["POST"])
+@login_required
+@admin_required
+def edit_set(set_id):
+    """Edit a set's metadata and/or append additional instruction PDFs from
+    the set detail page — covers both manually-added sets (which have no
+    Brickset data to begin with) and Brickset-sourced sets where Brickset's
+    listing was missing something (e.g. instructions weren't published yet)."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+
+    name = request.form.get("name", "").strip()
+    year = request.form.get("year", type=int)
+    theme = request.form.get("theme", "").strip() or None
+    pieces = request.form.get("pieces", type=int)
+
+    if not name:
+        flash("Name is required.", "error")
+        return redirect(url_for("sets.set_detail", set_id=set_id))
+
+    sets_dir = current_app.config["SETS_DIR"]
+    safe_set_number = secure_filename(str(set_data["setNumber"]))
+    rel_instructions_dir = os.path.join(safe_set_number, "instructions")
+
+    new_instructions = []
+    for pdf_file in request.files.getlist("instructions"):
+        if pdf_file and pdf_file.filename:
+            if not _has_allowed_extension(
+                pdf_file.filename, ALLOWED_INSTRUCTION_EXTENSIONS
+            ):
+                flash("Instructions must be PDF files.", "error")
+                return redirect(url_for("sets.set_detail", set_id=set_id))
+            if not _is_valid_pdf(pdf_file):
+                flash("Instructions file is not a valid PDF.", "error")
+                return redirect(url_for("sets.set_detail", set_id=set_id))
+            filename = secure_filename(pdf_file.filename)
+            if not filename:
+                flash("Instructions filename is invalid.", "error")
+                return redirect(url_for("sets.set_detail", set_id=set_id))
+            os.makedirs(os.path.join(sets_dir, rel_instructions_dir), exist_ok=True)
+            rel_path = os.path.join(rel_instructions_dir, filename)
+            pdf_file.save(os.path.join(sets_dir, rel_path))
+            new_instructions.append(rel_path)
+
+    current_app.db_ops.update_set_metadata(set_id, name, year, theme, pieces)
+    if new_instructions:
+        current_app.db_ops.append_local_instructions(set_id, new_instructions)
+
+    flash("Set updated.", "success")
+    return redirect(url_for("sets.set_detail", set_id=set_id))
+
+
+@sets_bp.route("/set/<int(signed=True):set_id>/refresh", methods=["POST"])
+@login_required
+@admin_required
+def refresh_set(set_id):
+    """Re-fetch a Brickset-sourced set's data (e.g. instructions Brickset
+    didn't have at add-time may have been published since)."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+    if set_id < 0:
+        flash("This set was added manually and isn't linked to Brickset.", "error")
+        return redirect(url_for("sets.set_detail", set_id=set_id))
+
+    combined_data = current_app.brickset_api.get_combined_data(
+        str(set_data["setNumber"]),
+        base_dir=current_app.config["SETS_DIR"],
+        max_bytes=current_app.config["MAX_DOWNLOAD_BYTES"],
+    )
+    if combined_data:
+        current_app.db_ops.insert_combined_data(combined_data)
+        flash("Set refreshed from Brickset.", "success")
+    else:
+        flash(
+            "Failed to refresh from Brickset. Check the Brickset API key and try again.",
+            "error",
+        )
+    return redirect(url_for("sets.set_detail", set_id=set_id))
+
+
 @sets_bp.route("/set/<int(signed=True):set_id>/delete", methods=["POST"])
 @login_required
 @admin_required

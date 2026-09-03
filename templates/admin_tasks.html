@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-3 mb-3">
+        {% include "_admin_sidebar.html" %}
+    </div>
+    <div class="col-md-9">
+        <h1 class="h3 mb-3">Tasks</h1>
+        <p class="text-muted">Manual maintenance actions you can run on demand.</p>
+
+        {% for task_id, task in tasks.items() %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 card-title">{{ task.label }}</h2>
+                    <p class="card-text small text-muted">{{ task.description }}</p>
+                    <form method="post" action="{{ url_for('admin.run_task', task_id=task_id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-play-fill"></i> Run
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+
+        {% if ran_task == "missing_metadata" %}
+            <hr class="my-4">
+            <h2 class="h5 mb-3">Results: sets with missing metadata</h2>
+            {% if results %}
+                <p class="small text-muted">{{ results|length }} set(s) found.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Set</th>
+                                <th>#</th>
+                                <th>Missing</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for set in results %}
+                                <tr>
+                                    <td><a href="{{ url_for('sets.set_detail', set_id=set.setID) }}">{{ set.name }}</a></td>
+                                    <td>{{ set.setNumber }}</td>
+                                    <td>
+                                        {% for field in set.missing_fields %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis">{{ field }}</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if set.setID > 0 %}
+                                            <form method="post" action="{{ url_for('sets.refresh_set', set_id=set.setID) }}" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">Retry from Brickset</button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-success">No sets are missing metadata. Everything looks complete.</div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

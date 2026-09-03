@@ -528,3 +528,294 @@ def test_list_sets_favorite_filter(app, admin_client):
     assert response.status_code == 200
     assert b"Set Fave" in response.data
     assert b"Set Plain" not in response.data
+
+
+def test_edit_set_updates_metadata(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 801,
+            "number": "80001",
+            "name": "Old Name",
+            "year": 2020,
+            "theme": "Old Theme",
+            "pieces": 10,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post(
+        "/set/801/edit",
+        data={
+            "csrf_token": "",
+            "name": "New Name",
+            "year": "2024",
+            "theme": "New Theme",
+            "pieces": "500",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Set updated" in response.data
+    updated = app.db_ops.get_set_by_id(801)
+    assert updated["name"] == "New Name"
+    assert updated["year"] == 2024
+    assert updated["theme"] == "New Theme"
+    assert updated["pieces"] == 500
+
+
+def test_edit_set_requires_name(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 802,
+            "number": "80002",
+            "name": "Keep Me",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post(
+        "/set/802/edit",
+        data={"csrf_token": "", "name": ""},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Name is required" in response.data
+    assert app.db_ops.get_set_by_id(802)["name"] == "Keep Me"
+
+
+def test_edit_set_appends_new_instruction_pdf(app, admin_client):
+    import io
+
+    app.db_ops.insert_set_data(
+        {
+            "setID": 803,
+            "number": "80003",
+            "name": "Instr Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post(
+        "/set/803/edit",
+        data={
+            "csrf_token": "",
+            "name": "Instr Set",
+            "instructions": (io.BytesIO(b"%PDF-1.4 fake"), "extra.pdf"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    updated = app.db_ops.get_set_by_id(803)
+    assert len(updated["local_instructions"]) == 1
+    assert updated["local_instructions"][0].endswith("extra.pdf")
+
+
+def test_edit_set_rejects_non_pdf_content(app, admin_client):
+    import io
+
+    app.db_ops.insert_set_data(
+        {
+            "setID": 804,
+            "number": "80004",
+            "name": "Instr Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post(
+        "/set/804/edit",
+        data={
+            "csrf_token": "",
+            "name": "Instr Set",
+            "instructions": (io.BytesIO(b"not-a-pdf"), "extra.pdf"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Instructions file is not a valid PDF" in response.data
+    assert app.db_ops.get_set_by_id(804)["local_instructions"] == []
+
+
+def test_edit_set_404_for_missing_set(admin_client):
+    response = admin_client.post("/set/999/edit", data={"csrf_token": "", "name": "X"})
+    assert response.status_code == 404
+
+
+def test_edit_set_forbidden_for_non_admin(app, user_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 805,
+            "number": "80005",
+            "name": "Keep Me",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    response = user_client.post(
+        "/set/805/edit", data={"csrf_token": "", "name": "Hacked"}
+    )
+    assert response.status_code == 403
+
+
+def test_refresh_set_manual_set_shows_error(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": -1,
+            "number": "90001",
+            "name": "Manual Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post("/set/-1/refresh", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert b"isn&#39;t linked to Brickset" in response.data
+
+
+def test_refresh_set_404_for_missing_set(admin_client):
+    response = admin_client.post("/set/999/refresh")
+    assert response.status_code == 404
+
+
+def test_refresh_set_success_re_downloads_data(app, admin_client, monkeypatch):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 806,
+            "number": "80006",
+            "name": "Stale Name",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    def fake_get_combined_data(set_number, base_dir=None, max_bytes=None):
+        return {
+            "sets": [
+                {
+                    "setID": 806,
+                    "number": "80006",
+                    "name": "Fresh Name",
+                    "year": 2024,
+                    "theme": "Fresh Theme",
+                    "pieces": 777,
+                    "local_images": [],
+                    "local_instructions": ["80006/instructions/fresh.pdf"],
+                }
+            ]
+        }
+
+    monkeypatch.setattr(app.brickset_api, "get_combined_data", fake_get_combined_data)
+
+    response = admin_client.post("/set/806/refresh", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert b"Set refreshed from Brickset" in response.data
+    updated = app.db_ops.get_set_by_id(806)
+    assert updated["name"] == "Fresh Name"
+    assert updated["local_instructions"] == ["80006/instructions/fresh.pdf"]
+
+
+def test_refresh_set_failure_shows_error(app, admin_client, monkeypatch):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 807,
+            "number": "80007",
+            "name": "Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    monkeypatch.setattr(app.brickset_api, "get_combined_data", lambda *a, **k: None)
+
+    response = admin_client.post("/set/807/refresh", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert b"Failed to refresh from Brickset" in response.data
+
+
+def test_admin_tasks_page_loads(admin_client):
+    response = admin_client.get("/admin/tasks")
+    assert response.status_code == 200
+    assert b"Find sets with missing metadata" in response.data
+
+
+def test_admin_tasks_page_forbidden_for_non_admin(user_client):
+    response = user_client.get("/admin/tasks")
+    assert response.status_code == 403
+
+
+def test_run_missing_metadata_task_lists_incomplete_sets(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 901,
+            "number": "90101",
+            "name": "Complete Set",
+            "year": 2024,
+            "theme": "Complete",
+            "pieces": 100,
+            "local_images": ["90101/images/x.jpg"],
+            "local_instructions": ["90101/instructions/y.pdf"],
+        }
+    )
+    app.db_ops.insert_set_data(
+        {
+            "setID": 902,
+            "number": "90102",
+            "name": "Incomplete Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post(
+        "/admin/tasks/missing_metadata/run",
+        data={"csrf_token": ""},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Incomplete Set" in response.data
+    assert b"Complete Set" not in response.data
+
+
+def test_run_missing_metadata_task_no_gaps_shows_success(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 903,
+            "number": "90103",
+            "name": "Complete Set",
+            "year": 2024,
+            "theme": "Complete",
+            "pieces": 100,
+            "local_images": ["90103/images/x.jpg"],
+            "local_instructions": ["90103/instructions/y.pdf"],
+        }
+    )
+
+    response = admin_client.post(
+        "/admin/tasks/missing_metadata/run",
+        data={"csrf_token": ""},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"No sets are missing metadata" in response.data
+
+
+def test_run_unknown_task_404s(admin_client):
+    response = admin_client.post(
+        "/admin/tasks/not-a-real-task/run", data={"csrf_token": ""}
+    )
+    assert response.status_code == 404

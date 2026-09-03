@@ -253,3 +253,74 @@ def test_normalizes_legacy_prefixed_paths_read_back_correctly(db_ops):
 
     assert result["local_images"] == ["75350/images/x.jpg"]
     assert result["local_instructions"] == ["75350/instructions/y.pdf"]
+
+
+def test_update_set_metadata_updates_fields(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+
+    updated = db_ops.update_set_metadata(111, "New Name", 2025, "Technic", 999)
+
+    assert updated is True
+    result = db_ops.get_set_by_id(111)
+    assert result["name"] == "New Name"
+    assert result["year"] == 2025
+    assert result["theme"] == "Technic"
+    assert result["pieces"] == 999
+
+
+def test_update_set_metadata_returns_false_for_missing_set(db_ops):
+    assert db_ops.update_set_metadata(999, "X", None, None, None) is False
+
+
+def test_append_local_instructions_adds_without_duplicating(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+
+    added = db_ops.append_local_instructions(
+        111, ["75386/instructions/manual.pdf", "75386/instructions/1234.pdf"]
+    )
+
+    assert added is True
+    result = db_ops.get_set_by_id(111)
+    # The pre-existing "1234.pdf" isn't duplicated; only the new file is added.
+    assert result["local_instructions"] == [
+        "75386/instructions/1234.pdf",
+        "75386/instructions/manual.pdf",
+    ]
+
+
+def test_append_local_instructions_returns_false_for_missing_set(db_ops):
+    assert db_ops.append_local_instructions(999, ["x/instructions/y.pdf"]) is False
+
+
+def test_find_sets_missing_metadata_reports_gaps(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))  # complete
+    db_ops.insert_set_data(
+        dict(
+            SAMPLE_SET,
+            setID=2,
+            number="99999",
+            year=None,
+            theme=None,
+            pieces=None,
+            local_images=[],
+            local_instructions=[],
+        )
+    )
+
+    results = db_ops.find_sets_missing_metadata()
+
+    assert len(results) == 1
+    incomplete = results[0]
+    assert incomplete["setID"] == 2
+    assert set(incomplete["missing_fields"]) == {
+        "year",
+        "theme",
+        "pieces",
+        "cover image",
+        "instructions",
+    }
+
+
+def test_find_sets_missing_metadata_empty_when_all_complete(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    assert db_ops.find_sets_missing_metadata() == []

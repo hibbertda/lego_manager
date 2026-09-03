@@ -333,6 +333,80 @@ class DatabaseOps:
                 raise RuntimeError("Failed to allocate a manual set ID")
             return -cursor.lastrowid
 
+    def update_set_metadata(
+        self,
+        set_id: int,
+        name: str,
+        year: Optional[int],
+        theme: Optional[str],
+        pieces: Optional[int],
+    ) -> bool:
+        """Manually edit a set's descriptive metadata (e.g. to fill in gaps
+        Brickset doesn't have, or to correct a manually-added set). Returns
+        False if the set doesn't exist."""
+        logger.info("Updating metadata for set ID %s", set_id)
+        with self.create_connection() as conn:
+            cursor = conn.execute(
+                "UPDATE sets SET name = ?, year = ?, theme = ?, pieces = ? WHERE setID = ?",
+                (name, year, theme, pieces, set_id),
+            )
+        return cursor.rowcount > 0
+
+    def append_local_instructions(self, set_id: int, rel_paths: list[str]) -> bool:
+        """Add manually-uploaded instruction PDFs to a set's existing list
+        (e.g. because Brickset didn't have them at add-time). Returns False
+        if the set doesn't exist."""
+        existing = self.get_set_by_id(set_id)
+        if not existing:
+            return False
+        # get_set_by_id already strips the 'sets/' prefix, so this stays
+        # consistent with insert_set_data's storage format.
+        combined = existing["local_instructions"] + [
+            p for p in rel_paths if p not in existing["local_instructions"]
+        ]
+        logger.info(
+            "Appending %d instruction file(s) to set ID %s", len(rel_paths), set_id
+        )
+        with self.create_connection() as conn:
+            conn.execute(
+                "UPDATE sets SET local_instructions = ? WHERE setID = ?",
+                (json.dumps(combined), set_id),
+            )
+        return True
+
+    def find_sets_missing_metadata(self) -> list[dict[str, Any]]:
+        """Scan for sets with gaps a maintenance admin might want to fix:
+        missing year/theme/pieces, no cover image, or no instructions.
+        Returns each set's data plus a 'missing_fields' list of human-readable
+        labels for what's absent."""
+        with self.create_connection() as conn:
+            rows = conn.execute(
+                f"SELECT {', '.join(SET_COLUMNS)} FROM sets "
+                "WHERE year IS NULL OR theme IS NULL OR theme = '' "
+                "OR pieces IS NULL "
+                "OR local_images IS NULL OR local_images = '[]' "
+                "OR local_instructions IS NULL OR local_instructions = '[]' "
+                "ORDER BY name COLLATE NOCASE ASC"
+            ).fetchall()
+
+        results = []
+        for row in rows:
+            data = row_to_dict(row)
+            missing = []
+            if not data.get("year"):
+                missing.append("year")
+            if not data.get("theme"):
+                missing.append("theme")
+            if not data.get("pieces"):
+                missing.append("pieces")
+            if not data.get("local_images"):
+                missing.append("cover image")
+            if not data.get("local_instructions"):
+                missing.append("instructions")
+            data["missing_fields"] = missing
+            results.append(data)
+        return results
+
     def get_distinct_themes(self) -> list[str]:
         with self.create_connection() as conn:
             rows = conn.execute(

@@ -62,22 +62,99 @@
         </div>
 
         {% if current_user.is_admin %}
-            <form method="post" action="{{ url_for('sets.delete_set', set_id=set.setID) }}" id="delete-set-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="button" class="btn btn-outline-danger btn-sm" id="delete-set-btn"
-                        data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true"
-                        data-bs-title="Delete this set?"
-                        data-bs-content="<p class='small mb-2'>Delete <strong>{{ set.name }}</strong>? This cannot be undone.</p>
-                            <div class='d-flex gap-2 justify-content-end'>
-                                <button type='button' class='btn btn-sm btn-secondary' data-popover-cancel>Cancel</button>
-                                <button type='button' class='btn btn-sm btn-danger' data-popover-confirm-delete>Delete</button>
-                            </div>">
-                    <i class="bi bi-trash-fill"></i> Delete set
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editSetModal">
+                    <i class="bi bi-pencil-square"></i> Edit set
                 </button>
-            </form>
+                {% if set.setID > 0 %}
+                    <form method="post" action="{{ url_for('sets.refresh_set', set_id=set.setID) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh from Brickset
+                        </button>
+                    </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('sets.delete_set', set_id=set.setID) }}" id="delete-set-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="delete-set-btn"
+                            data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true"
+                            data-bs-title="Delete this set?"
+                            data-bs-content="<p class='small mb-2'>Delete <strong>{{ set.name }}</strong>? This cannot be undone.</p>
+                                <div class='d-flex gap-2 justify-content-end'>
+                                    <button type='button' class='btn btn-sm btn-secondary' data-popover-cancel>Cancel</button>
+                                    <button type='button' class='btn btn-sm btn-danger' data-popover-confirm-delete>Delete</button>
+                                </div>">
+                        <i class="bi bi-trash-fill"></i> Delete set
+                    </button>
+                </form>
+            </div>
         {% endif %}
     </div>
 </div>
+
+{% if current_user.is_admin %}
+    <div class="modal fade" id="editSetModal" tabindex="-1" aria-labelledby="editSetModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editSetModalLabel"><i class="bi bi-pencil-square text-primary"></i> Edit set</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="post" action="{{ url_for('sets.edit_set', set_id=set.setID) }}" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="mb-3">
+                            <label for="edit_name" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="edit_name" name="name" value="{{ set.name }}" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label for="edit_year" class="form-label">Year</label>
+                                <input type="number" class="form-control" id="edit_year" name="year" value="{{ set.year or '' }}">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="edit_pieces" class="form-label">Pieces</label>
+                                <input type="number" class="form-control" id="edit_pieces" name="pieces" value="{{ set.pieces or '' }}">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_theme" class="form-label">Theme</label>
+                            <input type="text" class="form-control" id="edit_theme" name="theme" value="{{ set.theme or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_instructions" class="form-label">Add instruction PDFs</label>
+                            <input type="file" class="form-control" id="edit_instructions" name="instructions"
+                                   accept="application/pdf" multiple>
+                            {% if set.local_instructions %}
+                                <div class="form-text">This set already has {{ set.local_instructions|length }} instruction file(s). New uploads are added alongside them.</div>
+                            {% endif %}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{% if not set.local_instructions %}
+    <hr class="my-4">
+    <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-exclamation-triangle-fill"></i> No instructions found for this set yet.
+            Brickset may not have published them, or the download may have failed.</span>
+        {% if current_user.is_admin %}
+            <span class="d-flex gap-2">
+                {% if set.setID > 0 %}
+                    <form method="post" action="{{ url_for('sets.refresh_set', set_id=set.setID) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Retry from Brickset</button>
+                    </form>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editSetModal">Upload manually</button>
+            </span>
+        {% endif %}
+    </div>
+{% endif %}
 
 {% if set.local_instructions %}
     <hr class="my-4">

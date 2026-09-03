@@ -25,7 +25,22 @@ exercise) from `/admin/brickset` in the UI — no server restart or `.env` edit
 required.
 
 If you'd rather not use Brickset at all, use "Add a Set" -> Manual instead
-(name, year, theme, pieces, optional image/PDF upload).
+(name, year, theme, pieces, optional image/PDF upload). Any set — Brickset-
+sourced or manual — can also be edited later from its detail page: admins
+see an "Edit set" button to correct metadata or upload additional
+instruction PDFs (e.g. if Brickset hadn't published them yet), and a
+"Refresh from Brickset" button to re-fetch a Brickset-sourced set's data.
+
+## Admin tasks
+
+`/admin/tasks` lists manual maintenance actions admins can run on demand.
+Currently available:
+
+- **Find sets with missing metadata** — scans the collection for sets
+  missing a year, theme, piece count, cover image, or instructions, and
+  lists them with a one-click "Retry from Brickset" for Brickset-sourced
+  sets (manually-added sets need to be fixed via "Edit set" instead, since
+  they have no Brickset listing to retry).
 
 ## Authentication
 
@@ -38,7 +53,7 @@ If you'd rather not use Brickset at all, use "Add a Set" -> Manual instead
   demoted, deactivated, or deleted through the UI.
 - **Admin UI**: logged-in admins see an "Admin" link (in the user menu)
   leading to a sidebar with sections for user management, SSO configuration,
-  and Brickset API settings.
+  Brickset API settings, and maintenance tasks.
 
 ### OIDC / Single sign-on
 

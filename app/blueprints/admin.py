@@ -1,5 +1,6 @@
 from flask import (
     Blueprint,
+    abort,
     current_app,
     flash,
     redirect,
@@ -13,6 +14,19 @@ from app.auth_ops import VALID_ROLES
 from app.decorators import admin_required
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+# Registry of manual maintenance tasks available on the admin Tasks page.
+# Keyed by the URL slug used in /admin/tasks/<task_id>/run.
+TASKS = {
+    "missing_metadata": {
+        "label": "Find sets with missing metadata",
+        "description": (
+            "Scans your collection for sets missing a year, theme, piece "
+            "count, cover image, or instructions, so you know what to fix "
+            "manually or retry from Brickset."
+        ),
+    },
+}
 
 
 @admin_bp.route("/")
@@ -55,6 +69,30 @@ def brickset():
         "admin_brickset.html",
         settings=settings,
         env_api_key_set=bool(current_app.config.get("BRICKSET_API_KEY")),
+    )
+
+
+@admin_bp.route("/tasks")
+@login_required
+@admin_required
+def tasks():
+    return render_template("admin_tasks.html", tasks=TASKS, ran_task=None, results=None)
+
+
+@admin_bp.route("/tasks/<task_id>/run", methods=["POST"])
+@login_required
+@admin_required
+def run_task(task_id):
+    if task_id not in TASKS:
+        abort(404)
+
+    if task_id == "missing_metadata":
+        results = current_app.db_ops.find_sets_missing_metadata()
+    else:  # pragma: no cover - unreachable, guarded by the TASKS membership check above
+        abort(404)
+
+    return render_template(
+        "admin_tasks.html", tasks=TASKS, ran_task=task_id, results=results
     )
 
 
