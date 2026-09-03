@@ -1,3 +1,6 @@
+import logging
+
+from authlib.integrations.base_client.errors import OAuthError
 from flask import (
     Blueprint,
     current_app,
@@ -13,6 +16,7 @@ from app import limiter
 from app.user import User
 
 auth_bp = Blueprint("auth", __name__)
+logger = logging.getLogger(__name__)
 
 
 def _safe_next_url(_value: str | None) -> str:
@@ -154,7 +158,26 @@ def oidc_callback():
         return redirect(url_for("auth.login"))
 
     client = current_app.oidc_oauth.oidc
-    token = client.authorize_access_token()
+    try:
+        token = client.authorize_access_token()
+    except OAuthError:
+        # Covers MismatchingStateError (the state Authlib stored in the
+        # session during /login/oidc can't be found/verified on this
+        # request — e.g. the session cookie expired, the login link was
+        # reused/replayed, or the browser blocked the cookie) as well as
+        # error responses the provider itself redirects back with (denied
+        # consent, expired code, etc). Either way this is a normal,
+        # user-recoverable failure, not a server bug — log server-side for
+        # diagnosis but don't surface a raw 500 to the user.
+        logger.warning(
+            "OIDC callback failed to exchange the authorization code", exc_info=True
+        )
+        flash(
+            "Single sign-on failed or the login session expired. Please try signing in again.",
+            "error",
+        )
+        return redirect(url_for("auth.login"))
+
     userinfo = token.get("userinfo") or client.userinfo(token=token)
 
     subject = userinfo.get("sub")

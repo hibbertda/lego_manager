@@ -301,3 +301,33 @@ def test_cannot_disable_local_login_without_enabling_sso(admin_client):
     )
     assert response.status_code == 200
     assert b"SSO must be enabled to disable local login" in response.data
+
+
+def test_oidc_callback_mismatching_state_redirects_with_flash_instead_of_500(
+    app, client
+):
+    from authlib.integrations.base_client.errors import MismatchingStateError
+
+    app.auth_ops.save_oidc_provider(
+        name="Authentik",
+        issuer="https://auth.example.com/application/o/lego/",
+        client_id="cid",
+        client_secret="csecret",
+        enabled=True,
+        disable_local_login=False,
+    )
+    app.oidc_oauth.reload()
+
+    def _raise_mismatch(*args, **kwargs):
+        raise MismatchingStateError()
+
+    app.oidc_oauth.oidc.authorize_access_token = _raise_mismatch
+
+    response = client.get(
+        "/login/oidc/callback?state=bad&code=irrelevant", follow_redirects=True
+    )
+
+    assert response.status_code == 200
+    assert b"Single sign-on failed" in response.data
+    # Landed back on /login, not a raw 500 error page.
+    assert b'name="username"' in response.data

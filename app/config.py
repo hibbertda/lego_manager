@@ -28,6 +28,15 @@ class Config:
                 # key means sessions won't survive a restart, which is a
                 # loud, obvious signal (nobody stays logged in) rather than a
                 # silent, exploitable default shared by every deployment.
+                # CAUTION if ever run this way under gunicorn with multiple
+                # workers: each worker process calls create_app()/Config()
+                # independently, so without --preload (which runs this once
+                # in the master before forking) every worker would generate
+                # its OWN key — any session cookie set by one worker then
+                # fails to verify on a request handled by another, breaking
+                # multi-request flows like OIDC login unpredictably. This is
+                # exactly why FLASK_DEBUG must stay off in production (see
+                # wiki/Security.md) regardless of this safety net.
                 secret_key = secrets.token_hex(32)
             else:
                 raise RuntimeError(
