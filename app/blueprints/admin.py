@@ -10,6 +10,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
+from app import label_ops
 from app.auth_ops import VALID_ROLES
 from app.decorators import admin_required
 
@@ -22,7 +23,8 @@ TASKS = {
         "label": "Find sets with missing metadata",
         "description": (
             "Scans your collection for sets missing a year, theme, piece "
-            "count, cover image, or instructions, so you know what to fix "
+            "count, cover image, instructions, or (if APP_BASE_URL is "
+            "configured) a storage-box label, so you know what to fix "
             "manually or retry from Brickset."
         ),
     },
@@ -88,6 +90,24 @@ def run_task(task_id):
 
     if task_id == "missing_metadata":
         results = current_app.db_ops.find_sets_missing_metadata()
+        base_url = current_app.config["APP_BASE_URL"]
+        if base_url:
+            # Labels are only ever generated once a base URL is configured
+            # (see app/label_ops.py), so flagging them as "missing" when it's
+            # unset would just be noise an admin can't act on yet.
+            sets_dir = current_app.config["SETS_DIR"]
+            results_by_id = {r["setID"]: r for r in results}
+            for set_data in current_app.db_ops.get_all_sets():
+                if label_ops.label_exists(set_data, sets_dir):
+                    continue
+                existing = results_by_id.get(set_data["setID"])
+                if existing:
+                    existing["missing_fields"].append("label")
+                else:
+                    set_data["missing_fields"] = ["label"]
+                    results.append(set_data)
+                    results_by_id[set_data["setID"]] = set_data
+            results.sort(key=lambda s: (s["name"] or "").lower())
     else:  # pragma: no cover - unreachable, guarded by the TASKS membership check above
         abort(404)
 

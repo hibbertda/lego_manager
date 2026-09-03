@@ -165,10 +165,12 @@ def create_app(config_class: type = Config) -> Flask:
     from app.blueprints.auth import auth_bp
     from app.blueprints.main import main_bp
     from app.blueprints.sets import sets_bp
+    from app.blueprints.utility import utility_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(sets_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(utility_bp)
 
     return app

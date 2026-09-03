@@ -61,6 +61,14 @@
             </div>
         </div>
 
+        {% if has_label %}
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <a href="{{ url_for('sets.set_label', set_id=set.setID) }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-upc-scan"></i> Show label
+                </a>
+            </div>
+        {% endif %}
+
         {% if current_user.is_admin %}
             <div class="d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editSetModal">

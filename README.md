@@ -29,6 +29,12 @@ collection and re-view any set's instructions from the browser.
 - Track build progress (page + status) per set so you can pick up a build
   later
 - Remove a set (admin only), with a confirmation prompt before deleting
+- Generate a printable 4x2in storage-box label for each set (cover image,
+  name/theme/set number, and a QR code linking back to the set's page) —
+  handy for boxing up disassembled sets you want to keep together but no
+  longer display. View/print/download from the set page or the Utility
+  &rarr; Labels list. Requires `APP_BASE_URL` to be configured (see
+  `.env.example`); without it, labels simply aren't generated.
 - Authentication: local accounts by default, with optional OIDC single
   sign-on (e.g. Authentik). Admins can manage users/roles and SSO config
   from the UI.

@@ -83,6 +83,11 @@
                                     <i class="bi bi-plus-circle-fill"></i> <span>Add a Set</span>
                                 </button>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('utility.') %}active{% endif %}" href="{{ url_for('utility.labels') }}">
+                                    <i class="bi bi-tools"></i> <span>Utility</span>
+                                </a>
+                            </li>
                         </ul>
                         <div class="d-none d-md-block small text-muted px-2 pt-3">
                             LEGO Manager &mdash; a personal collection tracker.

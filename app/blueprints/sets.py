@@ -17,6 +17,7 @@ from flask_login import login_required
 from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import safe_join, secure_filename
 
+from app import label_ops
 from app.decorators import admin_required
 from app.sql_ops import DEFAULT_SORT, SORT_LABELS, VALID_BUILD_STATUSES
 
@@ -70,6 +71,24 @@ def _is_valid_pdf(file_storage) -> bool:
     return header == b"%PDF-"
 
 
+def _regenerate_label(set_id: int) -> None:
+    """(Re)generate a set's storage-box label from its current DB data. A
+    no-op if APP_BASE_URL isn't configured (see app/label_ops.py). Errors are
+    logged rather than raised so a label failure never blocks the add/edit
+    flow that triggered it."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        return
+    try:
+        label_ops.generate_label(
+            set_data,
+            current_app.config["SETS_DIR"],
+            current_app.config["APP_BASE_URL"],
+        )
+    except Exception:
+        current_app.logger.exception("Failed to generate label for set %s", set_id)
+
+
 @sets_bp.route("/add_set", methods=["GET", "POST"])
 @login_required
 def add_set():
@@ -90,6 +109,9 @@ def add_set():
     )
     if combined_data:
         current_app.db_ops.insert_combined_data(combined_data)
+        for added in combined_data.get("sets", []):
+            if added.get("setID") is not None:
+                _regenerate_label(added["setID"])
         return redirect(url_for("sets.list_sets"))
     flash(
         "Failed to retrieve set data from Brickset. Check the set number, "
@@ -177,6 +199,7 @@ def add_set_manual():
         "local_instructions": local_instructions,
     }
     current_app.db_ops.insert_set_data(set_data)
+    _regenerate_label(set_id)
     flash("Set added manually.", "success")
     return redirect(url_for("sets.set_detail", set_id=set_id))
 
@@ -187,7 +210,41 @@ def set_detail(set_id):
     set_data = current_app.db_ops.get_set_by_id(set_id)
     if not set_data:
         abort(404)
-    return render_template("set_detail.html", set=set_data)
+    has_label = label_ops.label_exists(set_data, current_app.config["SETS_DIR"])
+    return render_template("set_detail.html", set=set_data, has_label=has_label)
+
+
+@sets_bp.route("/set/<int(signed=True):set_id>/label")
+@login_required
+def set_label(set_id):
+    """Print-friendly view of a set's storage-box label."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+    if not label_ops.label_exists(set_data, current_app.config["SETS_DIR"]):
+        abort(404)
+    return render_template("set_label.html", set=set_data)
+
+
+@sets_bp.route("/set/<int(signed=True):set_id>/label/image")
+@login_required
+def set_label_image(set_id):
+    """Serves the generated label PNG itself (used by the label view page
+    and the Utility labels list)."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+    abs_path = label_ops.get_label_abs_path(set_data, current_app.config["SETS_DIR"])
+    if not os.path.isfile(abs_path):
+        abort(404)
+    directory, filename = os.path.split(abs_path)
+    safe_set_number = secure_filename(str(set_data["setNumber"]))
+    download_name = f"label-{safe_set_number}.png"
+    return send_from_directory(
+        directory,
+        filename,
+        download_name=download_name if request.args.get("download") else None,
+    )
 
 
 @sets_bp.route("/set/<int(signed=True):set_id>/progress", methods=["POST"])
@@ -303,6 +360,7 @@ def edit_set(set_id):
     current_app.db_ops.update_set_metadata(set_id, name, year, theme, pieces)
     if new_instructions:
         current_app.db_ops.append_local_instructions(set_id, new_instructions)
+    _regenerate_label(set_id)
 
     flash("Set updated.", "success")
     return redirect(url_for("sets.set_detail", set_id=set_id))
@@ -328,6 +386,7 @@ def refresh_set(set_id):
     )
     if combined_data:
         current_app.db_ops.insert_combined_data(combined_data)
+        _regenerate_label(set_id)
         flash("Set refreshed from Brickset.", "success")
     else:
         flash(

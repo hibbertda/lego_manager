@@ -407,6 +407,17 @@ class DatabaseOps:
             results.append(data)
         return results
 
+    def get_all_sets(self) -> list[dict[str, Any]]:
+        """All sets, unpaginated — used by the Utility Labels page (and the
+        admin missing-metadata task's label check) which need to see the
+        whole collection at once rather than one page at a time."""
+        with self.create_connection() as conn:
+            rows = conn.execute(
+                f"SELECT {', '.join(SET_COLUMNS)} FROM sets "
+                "ORDER BY name COLLATE NOCASE ASC"
+            ).fetchall()
+        return [row_to_dict(row) for row in rows]
+
     def get_distinct_themes(self) -> list[str]:
         with self.create_connection() as conn:
             rows = conn.execute(

@@ -54,6 +54,16 @@ class Config:
         self.BRICKSET_USERNAME = os.getenv("BRICKSET_USERNAME")
         self.BRICKSET_PASSWORD = os.getenv("BRICKSET_PASSWORD")
 
+        # Optional: public base URL (e.g. "https://lego.example.com") used to
+        # build the absolute set-detail link encoded in each storage-box
+        # label's QR code. Labels can't be generated without knowing this,
+        # since a QR code pointing at an internal/relative URL would be
+        # useless once printed and stuck on a box. Left unset by default —
+        # label generation is simply skipped until an admin configures it.
+        self.APP_BASE_URL = (os.getenv("APP_BASE_URL") or "").strip().rstrip(
+            "/"
+        ) or None
+
         self.SETS_PER_PAGE = int(os.getenv("SETS_PER_PAGE", "10"))
         self.MAX_CONTENT_LENGTH = int(
             os.getenv("MAX_CONTENT_LENGTH", str(25 * 1024 * 1024))
