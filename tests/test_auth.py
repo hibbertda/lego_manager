@@ -329,5 +329,37 @@ def test_oidc_callback_mismatching_state_redirects_with_flash_instead_of_500(
 
     assert response.status_code == 200
     assert b"Single sign-on failed" in response.data
+
+
+def test_oidc_callback_username_conflict_redirects_with_flash_instead_of_500(
+    app, client
+):
+    app.auth_ops.create_local_user(
+        username="daniel", password="localpassword123", role="admin"
+    )
+    app.auth_ops.save_oidc_provider(
+        name="Authentik",
+        issuer="https://auth.example.com/application/o/lego/",
+        client_id="cid",
+        client_secret="csecret",
+        enabled=True,
+        disable_local_login=False,
+    )
+    app.oidc_oauth.reload()
+
+    fake_userinfo = {"sub": "authentik-subject-123", "preferred_username": "daniel"}
+    app.oidc_oauth.oidc.authorize_access_token = lambda *a, **k: {
+        "userinfo": fake_userinfo
+    }
+
+    response = client.get(
+        "/login/oidc/callback?state=irrelevant&code=irrelevant",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"already taken" in response.data
+    # No account should have been left half-created for the OIDC subject.
+    assert app.auth_ops.get_user_by_username("daniel")["auth_provider"] == "local"
     # Landed back on /login, not a raw 500 error page.
     assert b'name="username"' in response.data

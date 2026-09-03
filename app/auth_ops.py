@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 VALID_ROLES = ("admin", "user")
 VALID_AUTH_PROVIDERS = ("local", "oidc")
 
+
+class OidcUsernameConflictError(RuntimeError):
+    """Raised when the username derived from OIDC claims (preferred_username,
+    email, or subject) collides with an existing account that isn't linked to
+    this OIDC subject. The users table has a single global UNIQUE constraint
+    on username shared by both local and OIDC accounts, so this is a genuine,
+    user-recoverable configuration conflict rather than a server bug — the
+    caller should show it to the user/admin rather than let it crash the
+    request."""
+
+
 USER_COLUMNS = (
     "id",
     "username",
@@ -143,11 +154,20 @@ class AuthOps:
             if row:
                 return _user_row_to_dict(row)
 
-            cursor = conn.execute(
-                "INSERT INTO users (username, email, role, auth_provider, oidc_subject) "
-                "VALUES (?, ?, ?, 'oidc', ?)",
-                (username, email, default_role, oidc_subject),
-            )
+            try:
+                cursor = conn.execute(
+                    "INSERT INTO users (username, email, role, auth_provider, oidc_subject) "
+                    "VALUES (?, ?, ?, 'oidc', ?)",
+                    (username, email, default_role, oidc_subject),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise OidcUsernameConflictError(
+                    f"Single sign-on could not create an account: the username "
+                    f"'{username}' from your identity provider is already taken "
+                    "by another account. Ask an admin to rename or remove the "
+                    "existing account, or configure the identity provider to "
+                    "send a different username claim, then try again."
+                ) from exc
             user_id = cursor.lastrowid
         if user_id is None:
             raise RuntimeError("Failed to create OIDC user")

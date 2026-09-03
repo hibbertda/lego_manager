@@ -13,6 +13,7 @@ from flask import (
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app import limiter
+from app.auth_ops import OidcUsernameConflictError
 from app.user import User
 
 auth_bp = Blueprint("auth", __name__)
@@ -188,12 +189,24 @@ def oidc_callback():
     username = userinfo.get("preferred_username") or userinfo.get("email") or subject
     email = userinfo.get("email")
 
-    user_data = current_app.auth_ops.get_or_create_oidc_user(
-        oidc_subject=subject,
-        username=username,
-        email=email,
-        default_role=provider["default_role"],
-    )
+    try:
+        user_data = current_app.auth_ops.get_or_create_oidc_user(
+            oidc_subject=subject,
+            username=username,
+            email=email,
+            default_role=provider["default_role"],
+        )
+    except OidcUsernameConflictError as exc:
+        # The username derived from the IdP's claims collides with an
+        # existing account (e.g. a local admin account created via /setup
+        # sharing a name with this identity in Authentik). Deliberately not
+        # auto-linked: doing so on an unauthenticated callback based on a
+        # username match alone would let anyone who controls a matching IdP
+        # username take over an existing local account.
+        logger.warning("OIDC login blocked by a username conflict: %s", exc)
+        flash(str(exc), "error")
+        return redirect(url_for("auth.login"))
+
     if not user_data.get("is_active", True):
         flash("This account has been disabled.", "error")
         return redirect(url_for("auth.login"))
