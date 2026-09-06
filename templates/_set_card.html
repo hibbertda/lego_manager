@@ -10,6 +10,9 @@
             <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="link-dark link-underline-opacity-0 link-underline-opacity-100-hover">
                 {{ set.name }} <span class="text-muted fw-normal">({{ set.year }})</span>
             </a>
+            {% if set.location %}
+                <span class="badge bg-light text-dark border ms-1"><i class="bi bi-geo-alt"></i> {{ set.location }}</span>
+            {% endif %}
         </h2>
         <p class="small text-muted mb-2">Set #{{ set.setNumber }} &middot; {{ set.theme }} &middot; {{ set.pieces }} pcs</p>
         <span class="badge {{ status_badge_classes[set.build_status] }}">

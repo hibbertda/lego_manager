@@ -1,0 +1,9 @@
+{% if view == 'grid' %}
+    {% for set in sets %}
+        {% include "_set_grid_card.html" %}
+    {% endfor %}
+{% else %}
+    {% for set in sets %}
+        {% include "_set_card.html" %}
+    {% endfor %}
+{% endif %}

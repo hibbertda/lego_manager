@@ -211,7 +211,10 @@ def set_detail(set_id):
     if not set_data:
         abort(404)
     has_label = label_ops.label_exists(set_data, current_app.config["SETS_DIR"])
-    return render_template("set_detail.html", set=set_data, has_label=has_label)
+    locations = current_app.db_ops.get_distinct_locations()
+    return render_template(
+        "set_detail.html", set=set_data, has_label=has_label, locations=locations
+    )
 
 
 @sets_bp.route("/set/<int(signed=True):set_id>/label")
@@ -310,6 +313,20 @@ def toggle_favorite(set_id):
 
     favorite = current_app.db_ops.toggle_favorite(set_id)
     return jsonify(ok=True, favorite=favorite)
+
+
+@sets_bp.route("/set/<int(signed=True):set_id>/location", methods=["POST"])
+@login_required
+def update_location(set_id):
+    """Save the free-text storage location for a set from the set detail page."""
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        abort(404)
+
+    location = request.form.get("location", "").strip() or None
+    current_app.db_ops.update_location(set_id, location)
+    flash("Location updated.", "success")
+    return redirect(url_for("sets.set_detail", set_id=set_id))
 
 
 @sets_bp.route("/set/<int(signed=True):set_id>/edit", methods=["POST"])
@@ -462,10 +479,9 @@ def search_suggest():
     return {"results": results, "total": total}
 
 
-@sets_bp.route("/setlist")
-@login_required
-def list_sets():
-    page = max(1, request.args.get("page", 1, type=int) or 1)
+def _parse_list_sets_filters():
+    """Shared query-string parsing for /setlist and its /setlist/items AJAX
+    pagination endpoint, so both stay in sync on validation."""
     view = request.args.get("view", "grid")
     if view not in ("list", "grid"):
         view = "grid"
@@ -474,32 +490,81 @@ def list_sets():
     if build_status not in VALID_BUILD_STATUSES:
         build_status = None
     favorite_only = request.args.get("favorite") == "1"
+    location = request.args.get("location") or None
     sort = request.args.get("sort") or DEFAULT_SORT
     if sort not in SORT_LABELS:
         sort = DEFAULT_SORT
+    return {
+        "view": view,
+        "theme": theme,
+        "build_status": build_status,
+        "favorite_only": favorite_only,
+        "location": location,
+        "sort": sort,
+    }
+
+
+@sets_bp.route("/setlist")
+@login_required
+def list_sets():
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    filters = _parse_list_sets_filters()
     per_page = current_app.config["SETS_PER_PAGE"]
     sets_data, total = current_app.db_ops.list_sets(
         page=page,
         per_page=per_page,
-        theme=theme,
-        build_status=build_status,
-        favorite_only=favorite_only,
-        sort=sort,
+        theme=filters["theme"],
+        build_status=filters["build_status"],
+        favorite_only=filters["favorite_only"],
+        sort=filters["sort"],
+        location=filters["location"],
     )
     total_pages = max(1, (total + per_page - 1) // per_page)
     themes = current_app.db_ops.get_distinct_themes()
+    locations = current_app.db_ops.get_distinct_locations()
     return render_template(
         "sets.html",
         sets=sets_data,
         page=page,
         total_pages=total_pages,
-        view=view,
-        theme=theme,
-        status=build_status,
-        favorite_only=favorite_only,
+        view=filters["view"],
+        theme=filters["theme"],
+        status=filters["build_status"],
+        favorite_only=filters["favorite_only"],
         themes=themes,
-        sort=sort,
+        locations=locations,
+        location=filters["location"],
+        sort=filters["sort"],
         sort_labels=SORT_LABELS,
+    )
+
+
+@sets_bp.route("/setlist/items")
+@login_required
+def list_sets_items():
+    """AJAX endpoint powering infinite scroll on the sets list page: returns a
+    rendered HTML fragment of the next page's set cards plus whether more
+    pages remain, so the browser can keep appending as the user scrolls
+    instead of requiring a "next page" click."""
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    filters = _parse_list_sets_filters()
+    per_page = current_app.config["SETS_PER_PAGE"]
+    sets_data, total = current_app.db_ops.list_sets(
+        page=page,
+        per_page=per_page,
+        theme=filters["theme"],
+        build_status=filters["build_status"],
+        favorite_only=filters["favorite_only"],
+        sort=filters["sort"],
+        location=filters["location"],
+    )
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    html = render_template("_set_items.html", sets=sets_data, view=filters["view"])
+    return jsonify(
+        html=html,
+        page=page,
+        has_more=page < total_pages,
+        next_page=page + 1,
     )
 
 

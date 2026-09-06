@@ -226,3 +226,63 @@
         }
     });
 })();
+
+(function () {
+    // Infinite scroll for the sets list page: replaces click-to-paginate
+    // with auto-loading the next page of set cards as the user scrolls near
+    // the bottom, via IntersectionObserver on a sentinel element.
+    const sentinel = document.getElementById('sets-scroll-sentinel');
+    const container = document.getElementById('sets-items-container');
+    if (!sentinel || !container || typeof IntersectionObserver === 'undefined') return;
+
+    const loadingIndicator = sentinel.querySelector('.sets-scroll-loading');
+    let loading = false;
+
+    function hasMore() {
+        return sentinel.dataset.hasMore === 'true';
+    }
+
+    function buildItemsUrl() {
+        const params = new URLSearchParams({
+            view: sentinel.dataset.view || '',
+            theme: sentinel.dataset.theme || '',
+            status: sentinel.dataset.status || '',
+            favorite: sentinel.dataset.favorite || '',
+            location: sentinel.dataset.location || '',
+            sort: sentinel.dataset.sort || '',
+            page: sentinel.dataset.nextPage || '1',
+        });
+        return sentinel.dataset.itemsUrl + '?' + params.toString();
+    }
+
+    function loadNextPage() {
+        if (loading || !hasMore()) return;
+        loading = true;
+        if (loadingIndicator) loadingIndicator.classList.remove('d-none');
+
+        fetch(buildItemsUrl(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resp) { return resp.ok ? resp.json() : Promise.reject(resp); })
+            .then(function (data) {
+                container.insertAdjacentHTML('beforeend', data.html);
+                sentinel.dataset.hasMore = String(!!data.has_more);
+                sentinel.dataset.nextPage = String(data.next_page);
+                if (!data.has_more) observer.disconnect();
+            })
+            .catch(function () {
+                // Leave has_more as-is so a transient network failure doesn't
+                // permanently stop the observer; the next intersection retries.
+            })
+            .finally(function () {
+                loading = false;
+                if (loadingIndicator) loadingIndicator.classList.add('d-none');
+            });
+    }
+
+    const observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) loadNextPage();
+        });
+    }, { rootMargin: '400px' });
+
+    if (hasMore()) observer.observe(sentinel);
+})();

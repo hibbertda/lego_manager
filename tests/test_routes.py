@@ -497,6 +497,76 @@ def test_update_status_only_rejects_invalid_status(app, admin_client):
     assert response.status_code == 400
 
 
+def test_update_location_persists_and_redirects(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 705,
+            "number": "1",
+            "name": "Location Set",
+            "year": 2024,
+            "theme": "Star Wars",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.post(
+        "/set/705/location", data={"location": "Shelf 3"}, follow_redirects=True
+    )
+    assert response.status_code == 200
+    assert app.db_ops.get_set_by_id(705)["location"] == "Shelf 3"
+
+
+def test_update_location_404_for_missing_set(admin_client):
+    response = admin_client.post("/set/999/location", data={"location": "Shelf 3"})
+    assert response.status_code == 404
+
+
+def test_changing_status_to_storage_clears_location(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 706,
+            "number": "1",
+            "name": "Location Clear Set",
+            "year": 2024,
+            "theme": "Star Wars",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.update_location(706, "Shelf 3")
+    app.db_ops.update_build_status_only(706, "complete")
+    assert app.db_ops.get_set_by_id(706)["location"] == "Shelf 3"
+
+    response = admin_client.post("/set/706/status", json={"build_status": "storage"})
+    assert response.status_code == 200
+    assert app.db_ops.get_set_by_id(706)["location"] == ""
+
+
+def test_list_sets_location_filter(app, admin_client):
+    for i, location in enumerate(["Shelf 3", "Bin A"], start=707):
+        app.db_ops.insert_set_data(
+            {
+                "setID": i,
+                "number": str(i),
+                "name": f"Set {i}",
+                "year": 2024,
+                "theme": "Star Wars",
+                "pieces": 1,
+                "local_images": [],
+                "local_instructions": [],
+            }
+        )
+        app.db_ops.update_location(i, location)
+
+    response = admin_client.get("/setlist?location=Shelf+3")
+    assert response.status_code == 200
+    assert b"Set 707" in response.data
+    assert b"Set 708" not in response.data
+
+
 def test_list_sets_favorite_filter(app, admin_client):
     app.db_ops.insert_set_data(
         {
@@ -528,6 +598,67 @@ def test_list_sets_favorite_filter(app, admin_client):
     assert response.status_code == 200
     assert b"Set Fave" in response.data
     assert b"Set Plain" not in response.data
+
+
+def test_list_sets_items_returns_next_page_fragment(app, admin_client):
+    for i in range(15):
+        app.db_ops.insert_set_data(
+            {
+                "setID": 900 + i,
+                "number": str(900 + i),
+                "name": f"Scroll Set {i:02d}",
+                "year": 2024,
+                "theme": "Star Wars",
+                "pieces": 1,
+                "local_images": [],
+                "local_instructions": [],
+            }
+        )
+
+    first_page = admin_client.get("/setlist")
+    assert first_page.status_code == 200
+    assert b'id="sets-scroll-sentinel"' in first_page.data
+    assert b'data-has-more="true"' in first_page.data
+    assert b'data-next-page="2"' in first_page.data
+
+    response = admin_client.get("/setlist/items?page=2&view=grid&sort=name")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["has_more"] is False
+    assert payload["next_page"] == 3
+    assert "Scroll Set" in payload["html"]
+
+
+def test_list_sets_items_respects_filters(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 950,
+            "number": "1",
+            "name": "Technic Set",
+            "year": 2024,
+            "theme": "Technic",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.insert_set_data(
+        {
+            "setID": 951,
+            "number": "2",
+            "name": "Star Wars Set",
+            "year": 2024,
+            "theme": "Star Wars",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.get("/setlist/items?page=1&theme=Technic")
+    payload = response.get_json()
+    assert "Technic Set" in payload["html"]
+    assert "Star Wars Set" not in payload["html"]
 
 
 def test_edit_set_updates_metadata(app, admin_client):

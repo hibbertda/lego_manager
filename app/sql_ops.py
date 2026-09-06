@@ -21,6 +21,7 @@ SET_COLUMNS = (
     "build_page",
     "build_status",
     "favorite",
+    "location",
 )
 
 VALID_BUILD_STATUSES = ("not_started", "in_progress", "complete", "storage")
@@ -96,6 +97,7 @@ def row_to_dict(row: tuple) -> dict[str, Any]:
     data["build_page"] = data.get("build_page") or 0
     data["build_status"] = data.get("build_status") or "not_started"
     data["favorite"] = bool(data.get("favorite") or 0)
+    data["location"] = data.get("location") or ""
     return data
 
 
@@ -146,6 +148,7 @@ class DatabaseOps:
                     "ALTER TABLE sets ADD COLUMN build_status TEXT DEFAULT 'not_started'",
                 ),
                 ("favorite", "ALTER TABLE sets ADD COLUMN favorite INTEGER DEFAULT 0"),
+                ("location", "ALTER TABLE sets ADD COLUMN location TEXT DEFAULT NULL"),
             ):
                 if column in existing_columns:
                     continue
@@ -227,12 +230,13 @@ class DatabaseOps:
         build_page = existing["build_page"] if existing else 0
         build_status = existing["build_status"] if existing else "not_started"
         favorite = int(existing["favorite"]) if existing else 0
+        location = (existing["location"] or None) if existing else None
 
         with self.create_connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO sets (setID, setNumber, numberVariant, name, year, theme, pieces, launchDate, instructions, local_images, local_instructions, build_page, build_status, favorite)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO sets (setID, setNumber, numberVariant, name, year, theme, pieces, launchDate, instructions, local_images, local_instructions, build_page, build_status, favorite, location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     set_id,
@@ -249,6 +253,7 @@ class DatabaseOps:
                     build_page,
                     build_status,
                     favorite,
+                    location,
                 ),
             )
 
@@ -268,10 +273,19 @@ class DatabaseOps:
             build_status,
         )
         with self.create_connection() as conn:
-            conn.execute(
-                "UPDATE sets SET build_page = ?, build_status = ? WHERE setID = ?",
-                (build_page, build_status, set_id),
-            )
+            if build_status == "storage":
+                # A set moved into storage no longer has a meaningful shelf
+                # location, so clear it rather than leave a stale value.
+                conn.execute(
+                    "UPDATE sets SET build_page = ?, build_status = ?, location = NULL "
+                    "WHERE setID = ?",
+                    (build_page, build_status, set_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE sets SET build_page = ?, build_status = ? WHERE setID = ?",
+                    (build_page, build_status, set_id),
+                )
 
     def update_build_page(self, set_id: int, build_page: int) -> None:
         """Update only the current page (e.g. from the PDF viewer's page-tracking),
@@ -296,10 +310,40 @@ class DatabaseOps:
             "Updating build status for set ID %s: status=%s", set_id, build_status
         )
         with self.create_connection() as conn:
-            conn.execute(
-                "UPDATE sets SET build_status = ? WHERE setID = ?",
-                (build_status, set_id),
+            if build_status == "storage":
+                # See update_build_progress: storage sets don't keep a location.
+                conn.execute(
+                    "UPDATE sets SET build_status = ?, location = NULL WHERE setID = ?",
+                    (build_status, set_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE sets SET build_status = ? WHERE setID = ?",
+                    (build_status, set_id),
+                )
+
+    def update_location(self, set_id: int, location: Optional[str]) -> bool:
+        """Set (or clear, if location is falsy) the free-text storage location
+        for a set. Returns False if the set doesn't exist."""
+        location = location.strip() if location else None
+        logger.info("Updating location for set ID %s: location=%r", set_id, location)
+        with self.create_connection() as conn:
+            cursor = conn.execute(
+                "UPDATE sets SET location = ? WHERE setID = ?",
+                (location or None, set_id),
             )
+        return cursor.rowcount > 0
+
+    def get_distinct_locations(self) -> list[str]:
+        """Previously-used locations, for the location filter menu and for
+        autocompleting the free-text location field on the set detail page."""
+        with self.create_connection() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT location FROM sets "
+                "WHERE location IS NOT NULL AND location != '' "
+                "ORDER BY location COLLATE NOCASE"
+            ).fetchall()
+        return [row[0] for row in rows]
 
     def toggle_favorite(self, set_id: int) -> bool:
         """Flip the favorite flag for a set and return the new value."""
@@ -461,6 +505,7 @@ class DatabaseOps:
         build_status: Optional[str] = None,
         favorite_only: bool = False,
         sort: Optional[str] = None,
+        location: Optional[str] = None,
     ) -> tuple[list[dict[str, Any]], int]:
         offset = (page - 1) * per_page
         conditions = []
@@ -473,6 +518,9 @@ class DatabaseOps:
             params.append(build_status)
         if favorite_only:
             conditions.append("favorite = 1")
+        if location:
+            conditions.append("location = ?")
+            params.append(location)
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         order_by = SORT_OPTIONS.get(sort or DEFAULT_SORT, SORT_OPTIONS[DEFAULT_SORT])
         with self.create_connection() as conn:

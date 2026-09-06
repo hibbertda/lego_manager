@@ -9,6 +9,7 @@
             <input type="hidden" name="theme" value="{{ theme or '' }}">
             <input type="hidden" name="status" value="{{ status or '' }}">
             <input type="hidden" name="favorite" value="{{ '1' if favorite_only else '' }}">
+            <input type="hidden" name="location" value="{{ location or '' }}">
             <label for="sort-select" class="form-label small text-secondary mb-0 text-nowrap">Sort by</label>
             <select id="sort-select" name="sort" class="form-select form-select-sm" data-auto-submit
                     aria-label="Sort sets by">
@@ -18,9 +19,9 @@
             </select>
         </form>
         <div class="btn-group" role="group" aria-label="View toggle">
-            <a href="{{ url_for('sets.list_sets', view='grid', theme=theme, status=status, favorite=('1' if favorite_only else None), sort=sort) }}"
+            <a href="{{ url_for('sets.list_sets', view='grid', theme=theme, status=status, favorite=('1' if favorite_only else None), location=location, sort=sort) }}"
                class="btn btn-outline-secondary {{ 'active' if view == 'grid' }}"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</a>
-            <a href="{{ url_for('sets.list_sets', view='list', theme=theme, status=status, favorite=('1' if favorite_only else None), sort=sort) }}"
+            <a href="{{ url_for('sets.list_sets', view='list', theme=theme, status=status, favorite=('1' if favorite_only else None), location=location, sort=sort) }}"
                class="btn btn-outline-secondary {{ 'active' if view == 'list' }}"><i class="bi bi-list-ul"></i> List</a>
         </div>
     </div>
@@ -35,30 +36,29 @@
                 <p class="display-1 text-secondary"><i class="bi bi-box-seam-fill"></i></p>
                 <p>No sets yet. <a href="{{ url_for('sets.add_set') }}">Add your first set</a>.</p>
             </div>
-        {% elif view == 'grid' %}
-            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
-                {% for set in sets %}
-                    {% include "_set_grid_card.html" %}
-                {% endfor %}
-            </div>
         {% else %}
-            <div class="list-group list-group-flush card">
-                {% for set in sets %}
-                    {% include "_set_card.html" %}
-                {% endfor %}
-            </div>
-        {% endif %}
+            {% if view == 'grid' %}
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3" id="sets-items-container">
+                    {% include "_set_items.html" %}
+                </div>
+            {% else %}
+                <div class="list-group list-group-flush card" id="sets-items-container">
+                    {% include "_set_items.html" %}
+                </div>
+            {% endif %}
 
-        {% if total_pages > 1 %}
-            <nav aria-label="Sets pagination" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% for p in range(1, total_pages + 1) %}
-                        <li class="page-item {{ 'active' if p == page }}">
-                            <a class="page-link" href="{{ url_for('sets.list_sets', page=p, view=view, theme=theme, status=status, favorite=('1' if favorite_only else None), sort=sort) }}">{{ p }}</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </nav>
+            <div id="sets-scroll-sentinel" class="py-4 text-center text-muted small"
+                 data-items-url="{{ url_for('sets.list_sets_items') }}"
+                 data-view="{{ view }}"
+                 data-theme="{{ theme or '' }}"
+                 data-status="{{ status or '' }}"
+                 data-favorite="{{ '1' if favorite_only else '' }}"
+                 data-location="{{ location or '' }}"
+                 data-sort="{{ sort }}"
+                 data-next-page="{{ page + 1 }}"
+                 data-has-more="{{ 'true' if page < total_pages else 'false' }}">
+                <span class="sets-scroll-loading d-none"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading more sets&hellip;</span>
+            </div>
         {% endif %}
     </div>
 </div>

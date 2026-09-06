@@ -324,3 +324,77 @@ def test_find_sets_missing_metadata_reports_gaps(db_ops):
 def test_find_sets_missing_metadata_empty_when_all_complete(db_ops):
     db_ops.insert_set_data(SAMPLE_SET)
     assert db_ops.find_sets_missing_metadata() == []
+
+
+def test_location_defaults_empty_and_can_be_set(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    assert db_ops.get_set_by_id(111)["location"] == ""
+
+    db_ops.update_location(111, "Shelf 3")
+    assert db_ops.get_set_by_id(111)["location"] == "Shelf 3"
+
+
+def test_location_survives_reinsert(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.update_location(111, "Shelf 3")
+
+    # Simulate a refresh (re-adding the same set), which uses INSERT OR REPLACE.
+    db_ops.insert_set_data(SAMPLE_SET)
+
+    assert db_ops.get_set_by_id(111)["location"] == "Shelf 3"
+
+
+def test_update_build_status_only_to_storage_clears_location(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.update_location(111, "Shelf 3")
+    db_ops.update_build_status_only(111, "complete")
+    assert db_ops.get_set_by_id(111)["location"] == "Shelf 3"
+
+    db_ops.update_build_status_only(111, "storage")
+
+    result = db_ops.get_set_by_id(111)
+    assert result["build_status"] == "storage"
+    assert result["location"] == ""
+
+
+def test_update_build_progress_to_storage_clears_location(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.update_location(111, "Bin A")
+
+    db_ops.update_build_progress(111, build_page=0, build_status="storage")
+
+    result = db_ops.get_set_by_id(111)
+    assert result["build_status"] == "storage"
+    assert result["location"] == ""
+
+
+def test_update_location_clears_when_blank(db_ops):
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.update_location(111, "Shelf 3")
+
+    db_ops.update_location(111, "  ")
+
+    assert db_ops.get_set_by_id(111)["location"] == ""
+
+
+def test_get_distinct_locations(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=2))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=3))
+    db_ops.update_location(1, "Shelf 3")
+    db_ops.update_location(2, "Bin A")
+    db_ops.update_location(3, "Shelf 3")
+
+    assert db_ops.get_distinct_locations() == ["Bin A", "Shelf 3"]
+
+
+def test_list_sets_filters_by_location(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=2))
+    db_ops.update_location(1, "Shelf 3")
+    db_ops.update_location(2, "Bin A")
+
+    results, total = db_ops.list_sets(location="Shelf 3")
+
+    assert total == 1
+    assert results[0]["setID"] == 1
