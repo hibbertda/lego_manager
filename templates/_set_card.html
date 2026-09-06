@@ -6,12 +6,12 @@
         <div class="set-thumb d-flex align-items-center justify-content-center fs-2 flex-shrink-0 text-secondary" style="width:5rem;height:5rem;"><i class="bi bi-box-seam-fill"></i></div>
     {% endif %}
     <div class="min-w-0 flex-grow-1">
-        <h2 class="h5 mb-1 text-truncate">
-            <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="link-dark link-underline-opacity-0 link-underline-opacity-100-hover">
+        <h2 class="h5 mb-1 d-flex flex-wrap align-items-start justify-content-between gap-2">
+            <a href="{{ url_for('sets.set_detail', set_id=set.setID) }}" class="link-dark link-underline-opacity-0 link-underline-opacity-100-hover set-card-name">
                 {{ set.name }} <span class="text-muted fw-normal">({{ set.year }})</span>
             </a>
             {% if set.location %}
-                <span class="badge bg-light text-dark border ms-1"><i class="bi bi-geo-alt"></i> {{ set.location }}</span>
+                <span class="badge bg-light text-dark border flex-shrink-0"><i class="bi bi-geo-alt"></i> {{ set.location }}</span>
             {% endif %}
         </h2>
         <p class="small text-muted mb-2">Set #{{ set.setNumber }} &middot; {{ set.theme }} &middot; {{ set.pieces }} pcs</p>

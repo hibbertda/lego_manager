@@ -236,6 +236,14 @@ button.app-sidebar-nav-btn,
     overflow: hidden;
 }
 
+// Set name next to the location badge (grid card + list card): let the name
+// wrap onto a second line instead of being truncated/hidden behind the
+// badge, while the badge itself never shrinks or wraps its own text.
+.set-card-name {
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
 .set-status-dropdown .set-status-toggle {
     font-weight: 600;
 }
