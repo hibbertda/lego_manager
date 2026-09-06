@@ -320,3 +320,24 @@ button.app-sidebar-nav-btn,
     width: 4.5rem;
     text-align: center;
 }
+
+// Free-text "Location" field with a dropdown of previously-used locations
+// (set detail page). Positioned absolutely so it overlays following form
+// controls instead of pushing them down.
+.location-combobox-menu {
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.location-combobox-option {
+    cursor: pointer;
+}
+
+.location-combobox-option.active,
+.location-combobox-option:hover {
+    background-color: #f1f3f5;
+}
+

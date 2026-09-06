@@ -69,14 +69,13 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="col-auto">
                         <label for="location" class="form-label small mb-1">Location</label>
-                        <input type="text" class="form-control" id="location" name="location"
-                               list="location-suggestions" value="{{ set.location }}"
-                               placeholder="e.g. Shelf 3, Bin A">
-                        <datalist id="location-suggestions">
-                            {% for l in locations %}
-                                <option value="{{ l }}">
-                            {% endfor %}
-                        </datalist>
+                        <div class="location-combobox position-relative"
+                             data-locations='{{ locations | tojson }}'>
+                            <input type="text" class="form-control" id="location" name="location"
+                                   value="{{ set.location }}" autocomplete="off"
+                                   placeholder="e.g. Shelf 3, Bin A">
+                            <ul class="location-combobox-menu list-group position-absolute w-100 shadow-sm d-none"></ul>
+                        </div>
                     </div>
                     <div class="col-auto">
                         <button type="submit" class="btn btn-primary">Save location</button>

@@ -286,3 +286,110 @@
 
     if (hasMore()) observer.observe(sentinel);
 })();
+
+(function () {
+    // Free-text "Location" field on the set detail page, with a dropdown of
+    // previously-used locations (shown in full on focus, filtered live as
+    // the user types, matched substring highlighted like breadcrumbs).
+    function escapeHtml(str) {
+        return str.replace(/[&<>"']/g, function (ch) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+        });
+    }
+
+    function highlightMatch(value, query) {
+        if (!query) return escapeHtml(value);
+        const idx = value.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return escapeHtml(value);
+        const before = value.slice(0, idx);
+        const match = value.slice(idx, idx + query.length);
+        const after = value.slice(idx + query.length);
+        return escapeHtml(before) + '<strong>' + escapeHtml(match) + '</strong>' + escapeHtml(after);
+    }
+
+    document.querySelectorAll('.location-combobox').forEach(function (combobox) {
+        const input = combobox.querySelector('input');
+        const menu = combobox.querySelector('.location-combobox-menu');
+        if (!input || !menu) return;
+
+        let locations = [];
+        try {
+            locations = JSON.parse(combobox.dataset.locations || '[]');
+        } catch (e) {
+            locations = [];
+        }
+
+        let activeIndex = -1;
+
+        function closeMenu() {
+            menu.classList.add('d-none');
+            menu.innerHTML = '';
+            activeIndex = -1;
+        }
+
+        function openMenu(query) {
+            const matches = locations.filter(function (loc) {
+                return !query || loc.toLowerCase().includes(query.toLowerCase());
+            });
+            if (!matches.length) {
+                closeMenu();
+                return;
+            }
+            menu.innerHTML = matches
+                .map(function (loc) {
+                    return '<li class="list-group-item list-group-item-action location-combobox-option" role="option" data-value="' +
+                        escapeHtml(loc) + '">' + highlightMatch(loc, query) + '</li>';
+                })
+                .join('');
+            menu.classList.remove('d-none');
+            activeIndex = -1;
+        }
+
+        function setActive(index) {
+            const options = menu.querySelectorAll('.location-combobox-option');
+            options.forEach(function (opt) { opt.classList.remove('active'); });
+            if (index >= 0 && index < options.length) {
+                options[index].classList.add('active');
+                options[index].scrollIntoView({ block: 'nearest' });
+            }
+            activeIndex = index;
+        }
+
+        input.addEventListener('focus', function () { openMenu(input.value); });
+        input.addEventListener('input', function () { openMenu(input.value); });
+
+        input.addEventListener('keydown', function (event) {
+            const options = menu.querySelectorAll('.location-combobox-option');
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (menu.classList.contains('d-none')) { openMenu(input.value); return; }
+                setActive(Math.min(activeIndex + 1, options.length - 1));
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                setActive(Math.max(activeIndex - 1, 0));
+            } else if (event.key === 'Enter') {
+                if (activeIndex >= 0 && options[activeIndex]) {
+                    event.preventDefault();
+                    input.value = options[activeIndex].dataset.value;
+                    closeMenu();
+                }
+            } else if (event.key === 'Escape') {
+                closeMenu();
+            }
+        });
+
+        // mousedown (not click) fires before the input's blur handler, so the
+        // menu is still populated when we read the clicked option's value.
+        menu.addEventListener('mousedown', function (event) {
+            const option = event.target.closest('.location-combobox-option');
+            if (!option) return;
+            event.preventDefault();
+            input.value = option.dataset.value;
+            closeMenu();
+        });
+
+        document.addEventListener('click', function (event) {
+            if (!combobox.contains(event.target)) closeMenu();
+        });
+    });
+})();
