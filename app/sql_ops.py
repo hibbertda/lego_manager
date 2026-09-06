@@ -24,7 +24,21 @@ SET_COLUMNS = (
     "location",
 )
 
-VALID_BUILD_STATUSES = ("not_started", "in_progress", "complete", "storage")
+VALID_BUILD_STATUSES = (
+    "not_started",
+    "in_progress",
+    "complete",
+    "storage",
+    "wishlist",
+)
+
+# Statuses that represent a set the user actually owns and is tracking build
+# progress on — i.e. everything except 'wishlist'. Used to keep wishlist
+# items out of owned-set-only pickers (the main list's Status sidebar filter
+# and the quick-status dropdown on its cards), since "wishlist" only makes
+# sense as an entry/exit state, not something you'd assign to a set you
+# already have.
+OWNED_BUILD_STATUSES = ("not_started", "in_progress", "complete", "storage")
 
 # Whitelisted ORDER BY clauses for the sets list "Sort by" control — keyed by
 # the query-string value so untrusted input never reaches raw SQL string
@@ -68,6 +82,11 @@ BUILD_STATUS_META = {
         "label": "Storage",
         "icon": "bi-archive-fill",
         "badge_class": "bg-info-subtle text-info-emphasis",
+    },
+    "wishlist": {
+        "label": "Wishlist",
+        "icon": "bi-star-fill",
+        "badge_class": "bg-primary-subtle text-primary-emphasis",
     },
 }
 
@@ -506,6 +525,7 @@ class DatabaseOps:
         favorite_only: bool = False,
         sort: Optional[str] = None,
         location: Optional[str] = None,
+        include_wishlist: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
         offset = (page - 1) * per_page
         conditions = []
@@ -516,6 +536,11 @@ class DatabaseOps:
         if build_status:
             conditions.append("build_status = ?")
             params.append(build_status)
+        elif not include_wishlist:
+            # With no explicit status filter, the main sets list should never
+            # surface wishlist items — those live on their own dedicated
+            # Wishlist page (which passes build_status='wishlist' directly).
+            conditions.append("build_status != 'wishlist'")
         if favorite_only:
             conditions.append("favorite = 1")
         if location:

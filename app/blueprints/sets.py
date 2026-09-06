@@ -19,7 +19,12 @@ from werkzeug.utils import safe_join, secure_filename
 
 from app import label_ops
 from app.decorators import admin_required
-from app.sql_ops import DEFAULT_SORT, SORT_LABELS, VALID_BUILD_STATUSES
+from app.sql_ops import (
+    DEFAULT_SORT,
+    OWNED_BUILD_STATUSES,
+    SORT_LABELS,
+    VALID_BUILD_STATUSES,
+)
 
 sets_bp = Blueprint("sets", __name__)
 
@@ -102,16 +107,33 @@ def add_set():
         flash("Set number is required.", "error")
         return redirect(url_for("sets.list_sets"))
 
+    initial_status = request.form.get("build_status") or "not_started"
+    if initial_status not in VALID_BUILD_STATUSES:
+        initial_status = "not_started"
+
     combined_data = current_app.brickset_api.get_combined_data(
         set_number,
         base_dir=current_app.config["SETS_DIR"],
         max_bytes=current_app.config["MAX_DOWNLOAD_BYTES"],
     )
     if combined_data:
+        # Only apply the modal's chosen category to sets that are genuinely
+        # new — insert_combined_data preserves existing build_status for
+        # already-tracked sets (e.g. a "Refresh from Brickset"), and we don't
+        # want to clobber that with whatever happened to be selected here.
+        new_set_ids = [
+            s["setID"]
+            for s in combined_data.get("sets", [])
+            if s.get("setID") is not None
+            and current_app.db_ops.get_set_by_id(s["setID"]) is None
+        ]
         current_app.db_ops.insert_combined_data(combined_data)
         for added in combined_data.get("sets", []):
             if added.get("setID") is not None:
                 _regenerate_label(added["setID"])
+        if initial_status != "not_started":
+            for set_id in new_set_ids:
+                current_app.db_ops.update_build_status_only(set_id, initial_status)
         return redirect(url_for("sets.list_sets"))
     flash(
         "Failed to retrieve set data from Brickset. Check the set number, "
@@ -129,6 +151,9 @@ def add_set_manual():
     year = request.form.get("year", type=int)
     theme = request.form.get("theme", "").strip() or None
     pieces = request.form.get("pieces", type=int)
+    build_status = request.form.get("build_status") or "not_started"
+    if build_status not in VALID_BUILD_STATUSES:
+        build_status = "not_started"
 
     if not set_number or not name:
         flash("Set number and name are required.", "error")
@@ -199,6 +224,8 @@ def add_set_manual():
         "local_instructions": local_instructions,
     }
     current_app.db_ops.insert_set_data(set_data)
+    if build_status != "not_started":
+        current_app.db_ops.update_build_status_only(set_id, build_status)
     _regenerate_label(set_id)
     flash("Set added manually.", "success")
     return redirect(url_for("sets.set_detail", set_id=set_id))
@@ -479,29 +506,39 @@ def search_suggest():
     return {"results": results, "total": total}
 
 
-def _parse_list_sets_filters():
-    """Shared query-string parsing for /setlist and its /setlist/items AJAX
-    pagination endpoint, so both stay in sync on validation."""
+def _parse_common_filters():
+    """Query-string parsing shared by every sets-listing view (main list and
+    wishlist): view mode, theme, favorite-only, and sort."""
     view = request.args.get("view", "grid")
     if view not in ("list", "grid"):
         view = "grid"
     theme = request.args.get("theme") or None
-    build_status = request.args.get("status") or None
-    if build_status not in VALID_BUILD_STATUSES:
-        build_status = None
     favorite_only = request.args.get("favorite") == "1"
-    location = request.args.get("location") or None
     sort = request.args.get("sort") or DEFAULT_SORT
     if sort not in SORT_LABELS:
         sort = DEFAULT_SORT
     return {
         "view": view,
         "theme": theme,
-        "build_status": build_status,
         "favorite_only": favorite_only,
-        "location": location,
         "sort": sort,
     }
+
+
+def _parse_list_sets_filters():
+    """Shared query-string parsing for /setlist and its /setlist/items AJAX
+    pagination endpoint, so both stay in sync on validation. The status
+    filter is restricted to OWNED_BUILD_STATUSES (excludes 'wishlist') so the
+    main sets list can never be made to show wishlist items, which live on
+    their own dedicated Wishlist page/route instead."""
+    filters = _parse_common_filters()
+    build_status = request.args.get("status") or None
+    if build_status not in OWNED_BUILD_STATUSES:
+        build_status = None
+    location = request.args.get("location") or None
+    filters["build_status"] = build_status
+    filters["location"] = location
+    return filters
 
 
 @sets_bp.route("/setlist")
@@ -536,6 +573,13 @@ def list_sets():
         location=filters["location"],
         sort=filters["sort"],
         sort_labels=SORT_LABELS,
+        # Wishlist items never belong on this page, so the Status filter and
+        # each card's quick-status dropdown only ever offer owned statuses.
+        build_statuses=OWNED_BUILD_STATUSES,
+        wishlist_mode=False,
+        page_title="My Sets",
+        list_endpoint="sets.list_sets",
+        items_endpoint="sets.list_sets_items",
     )
 
 
@@ -557,6 +601,76 @@ def list_sets_items():
         favorite_only=filters["favorite_only"],
         sort=filters["sort"],
         location=filters["location"],
+    )
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    html = render_template(
+        "_set_items.html",
+        sets=sets_data,
+        view=filters["view"],
+        build_statuses=OWNED_BUILD_STATUSES,
+    )
+    return jsonify(
+        html=html,
+        page=page,
+        has_more=page < total_pages,
+        next_page=page + 1,
+    )
+
+
+@sets_bp.route("/wishlist")
+@login_required
+def wishlist():
+    """Sets marked as 'wishlist' — kept off the main sets list entirely and
+    shown here instead, via its own sidebar nav button."""
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    filters = _parse_common_filters()
+    per_page = current_app.config["SETS_PER_PAGE"]
+    sets_data, total = current_app.db_ops.list_sets(
+        page=page,
+        per_page=per_page,
+        theme=filters["theme"],
+        build_status="wishlist",
+        favorite_only=filters["favorite_only"],
+        sort=filters["sort"],
+    )
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    themes = current_app.db_ops.get_distinct_themes()
+    return render_template(
+        "sets.html",
+        sets=sets_data,
+        page=page,
+        total_pages=total_pages,
+        view=filters["view"],
+        theme=filters["theme"],
+        status="wishlist",
+        favorite_only=filters["favorite_only"],
+        themes=themes,
+        locations=[],
+        location=None,
+        sort=filters["sort"],
+        sort_labels=SORT_LABELS,
+        wishlist_mode=True,
+        page_title="Wishlist",
+        list_endpoint="sets.wishlist",
+        items_endpoint="sets.wishlist_items",
+    )
+
+
+@sets_bp.route("/wishlist/items")
+@login_required
+def wishlist_items():
+    """AJAX infinite-scroll endpoint for the Wishlist page (see
+    list_sets_items for the main list's equivalent)."""
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    filters = _parse_common_filters()
+    per_page = current_app.config["SETS_PER_PAGE"]
+    sets_data, total = current_app.db_ops.list_sets(
+        page=page,
+        per_page=per_page,
+        theme=filters["theme"],
+        build_status="wishlist",
+        favorite_only=filters["favorite_only"],
+        sort=filters["sort"],
     )
     total_pages = max(1, (total + per_page - 1) // per_page)
     html = render_template("_set_items.html", sets=sets_data, view=filters["view"])

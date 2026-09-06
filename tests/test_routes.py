@@ -661,6 +661,104 @@ def test_list_sets_items_respects_filters(app, admin_client):
     assert "Star Wars Set" not in payload["html"]
 
 
+def test_wishlist_items_excluded_from_main_list(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 960,
+            "number": "1",
+            "name": "Wanted Set",
+            "year": 2024,
+            "theme": "Icons",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.update_build_status_only(960, "wishlist")
+
+    response = admin_client.get("/setlist")
+    assert b"Wanted Set" not in response.data
+
+    # Even a manually crafted status=wishlist query string must not leak
+    # wishlist items into the main list.
+    response = admin_client.get("/setlist?status=wishlist")
+    assert b"Wanted Set" not in response.data
+
+    response = admin_client.get("/setlist/items?status=wishlist")
+    payload = response.get_json()
+    assert "Wanted Set" not in payload["html"]
+
+
+def test_wishlist_page_shows_wishlist_items(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 961,
+            "number": "1",
+            "name": "Wanted Set",
+            "year": 2024,
+            "theme": "Icons",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.update_build_status_only(961, "wishlist")
+    app.db_ops.insert_set_data(
+        {
+            "setID": 962,
+            "number": "2",
+            "name": "Owned Set",
+            "year": 2024,
+            "theme": "Icons",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = admin_client.get("/wishlist")
+    assert response.status_code == 200
+    assert b"Wanted Set" in response.data
+    assert b"Owned Set" not in response.data
+
+    response = admin_client.get("/wishlist/items")
+    payload = response.get_json()
+    assert "Wanted Set" in payload["html"]
+    assert "Owned Set" not in payload["html"]
+
+
+def test_add_set_manual_with_wishlist_category(app, admin_client):
+    response = admin_client.post(
+        "/add_set/manual",
+        data={
+            "set_number": "999-1",
+            "name": "Dream Set",
+            "build_status": "wishlist",
+        },
+    )
+    assert response.status_code == 302
+    results, _ = app.db_ops.search_sets("999-1")
+    assert results[0]["build_status"] == "wishlist"
+
+    # Should show up on the wishlist page, not the main list.
+    assert b"Dream Set" not in admin_client.get("/setlist").data
+    assert b"Dream Set" in admin_client.get("/wishlist").data
+
+
+def test_add_set_manual_invalid_build_status_defaults(app, admin_client):
+    response = admin_client.post(
+        "/add_set/manual",
+        data={
+            "set_number": "999-2",
+            "name": "Bogus Category Set",
+            "build_status": "not-a-real-status",
+        },
+    )
+    assert response.status_code == 302
+    results, _ = app.db_ops.search_sets("999-2")
+    assert results[0]["build_status"] == "not_started"
+
+
 def test_edit_set_updates_metadata(app, admin_client):
     app.db_ops.insert_set_data(
         {

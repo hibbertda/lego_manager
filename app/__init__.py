@@ -125,6 +125,12 @@ def create_app(config_class: type = Config) -> Flask:
 
         return {
             "build_statuses": VALID_BUILD_STATUSES,
+            # Always the full list (including "wishlist"), regardless of any
+            # per-route override of build_statuses (e.g. the main sets list
+            # restricts build_statuses to owned-only statuses for its Status
+            # filter/quick-status dropdown) — used by the global "Add a Set"
+            # modal's category picker so Wishlist is always selectable there.
+            "all_build_statuses": VALID_BUILD_STATUSES,
             "status_labels": {k: v["label"] for k, v in BUILD_STATUS_META.items()},
             "status_icons": {k: v["icon"] for k, v in BUILD_STATUS_META.items()},
             "status_badge_classes": {

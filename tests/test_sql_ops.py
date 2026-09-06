@@ -398,3 +398,45 @@ def test_list_sets_filters_by_location(db_ops):
 
     assert total == 1
     assert results[0]["setID"] == 1
+
+
+def test_wishlist_is_valid_but_not_owned_status(db_ops):
+    from app.sql_ops import OWNED_BUILD_STATUSES, VALID_BUILD_STATUSES
+
+    assert "wishlist" in VALID_BUILD_STATUSES
+    assert "wishlist" not in OWNED_BUILD_STATUSES
+    db_ops.insert_set_data(SAMPLE_SET)
+    db_ops.update_build_status_only(111, "wishlist")
+    assert db_ops.get_set_by_id(111)["build_status"] == "wishlist"
+
+
+def test_list_sets_excludes_wishlist_by_default(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=2))
+    db_ops.update_build_status_only(2, "wishlist")
+
+    results, total = db_ops.list_sets()
+
+    assert total == 1
+    assert results[0]["setID"] == 1
+
+
+def test_list_sets_include_wishlist_shows_all(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=2))
+    db_ops.update_build_status_only(2, "wishlist")
+
+    results, total = db_ops.list_sets(include_wishlist=True)
+
+    assert total == 2
+
+
+def test_list_sets_explicit_wishlist_status_filter(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=2))
+    db_ops.update_build_status_only(2, "wishlist")
+
+    results, total = db_ops.list_sets(build_status="wishlist")
+
+    assert total == 1
+    assert results[0]["setID"] == 2

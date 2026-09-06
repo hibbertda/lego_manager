@@ -79,6 +79,11 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'sets.wishlist' %}active{% endif %}" href="{{ url_for('sets.wishlist') }}">
+                                    <i class="bi bi-star-fill"></i> <span>Wishlist</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <button type="button" class="nav-link w-100 text-start border-0" data-bs-toggle="modal" data-bs-target="#addSetModal">
                                     <i class="bi bi-plus-circle-fill"></i> <span>Add a Set</span>
                                 </button>
@@ -166,6 +171,14 @@
                                     <input type="text" class="form-control" id="modal_set_number" name="set_number"
                                            placeholder="e.g. 75192-1" required>
                                 </div>
+                                <div class="mb-3">
+                                    <label for="modal_build_status" class="form-label">Category</label>
+                                    <select class="form-select" id="modal_build_status" name="build_status">
+                                        {% for s in all_build_statuses %}
+                                            <option value="{{ s }}" {{ 'selected' if s == 'not_started' }}>{{ status_labels[s] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                                 <button type="submit" class="btn btn-primary">Fetch from Brickset</button>
                             </form>
                         </div>
@@ -194,6 +207,14 @@
                                 <div class="mb-3">
                                     <label for="modal_m_theme" class="form-label">Theme</label>
                                     <input type="text" class="form-control" id="modal_m_theme" name="theme">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="modal_m_build_status" class="form-label">Category</label>
+                                    <select class="form-select" id="modal_m_build_status" name="build_status">
+                                        {% for s in all_build_statuses %}
+                                            <option value="{{ s }}" {{ 'selected' if s == 'not_started' }}>{{ status_labels[s] }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                                 <div class="mb-3">
                                     <label for="modal_m_image" class="form-label">Cover image</label>
