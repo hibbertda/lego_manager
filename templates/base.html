@@ -72,6 +72,15 @@
                         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
                     </div>
                     <div class="offcanvas-body d-flex flex-column p-2 p-md-3">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('sets.list_sets') }}" class="sets-counter-card d-flex align-items-center gap-3 text-decoration-none mb-3">
+                                <span class="sets-counter-icon"><i class="bi bi-box-seam-fill"></i></span>
+                                <span class="d-flex flex-column lh-1">
+                                    <span class="sets-counter-value">{{ owned_set_count }}</span>
+                                    <span class="sets-counter-label">Set{{ 's' if owned_set_count != 1 }} Tracked</span>
+                                </span>
+                            </a>
+                        {% endif %}
                         <ul class="nav flex-column mb-3">
                             <li class="nav-item">
                                 <a class="nav-link {% if request.endpoint == 'sets.list_sets' %}active{% endif %}" href="{{ url_for('sets.list_sets') }}">

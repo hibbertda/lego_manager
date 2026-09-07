@@ -6,6 +6,10 @@
                class="list-group-item list-group-item-action border-0 {{ 'active' if request.endpoint == 'utility.labels' }}">
                 <i class="bi bi-upc-scan"></i> Labels
             </a>
+            <a href="{{ url_for('utility.missing_metadata') }}"
+               class="list-group-item list-group-item-action border-0 {{ 'active' if request.endpoint in ('utility.missing_metadata', 'utility.run_missing_metadata') }}">
+                <i class="bi bi-list-task"></i> Missing Metadata
+            </a>
         </div>
     </div>
 </div>

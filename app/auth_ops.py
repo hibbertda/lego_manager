@@ -22,6 +22,13 @@ class OidcUsernameConflictError(RuntimeError):
     request."""
 
 
+class OidcUserNotProvisionedError(RuntimeError):
+    """Raised on an OIDC login attempt by a subject with no matching account
+    when the provider has automatic account creation disabled. Deliberately
+    distinct from a generic auth failure so the login page can show a
+    specific, actionable message instead of a vague "invalid login"."""
+
+
 USER_COLUMNS = (
     "id",
     "username",
@@ -44,6 +51,7 @@ PROVIDER_COLUMNS = (
     "enabled",
     "default_role",
     "disable_local_login",
+    "auto_create_users",
 )
 
 
@@ -58,6 +66,7 @@ def _provider_row_to_dict(row: tuple) -> dict[str, Any]:
     data = dict(zip(PROVIDER_COLUMNS, row))
     data["enabled"] = bool(data["enabled"])
     data["disable_local_login"] = bool(data["disable_local_login"])
+    data["auto_create_users"] = bool(data["auto_create_users"])
     return data
 
 
@@ -104,7 +113,8 @@ class AuthOps:
                     scopes TEXT NOT NULL DEFAULT 'openid profile email',
                     enabled INTEGER NOT NULL DEFAULT 0,
                     default_role TEXT NOT NULL DEFAULT 'user',
-                    disable_local_login INTEGER NOT NULL DEFAULT 0
+                    disable_local_login INTEGER NOT NULL DEFAULT 0,
+                    auto_create_users INTEGER NOT NULL DEFAULT 1
                 )
             """)
 
@@ -114,6 +124,13 @@ class AuthOps:
             if "disable_local_login" not in existing_columns:
                 conn.execute(
                     "ALTER TABLE oidc_providers ADD COLUMN disable_local_login INTEGER NOT NULL DEFAULT 0"
+                )
+            if "auto_create_users" not in existing_columns:
+                # Default to 1 (on) so upgrades preserve the pre-existing
+                # behavior of always auto-creating a new account on first
+                # SSO login.
+                conn.execute(
+                    "ALTER TABLE oidc_providers ADD COLUMN auto_create_users INTEGER NOT NULL DEFAULT 1"
                 )
 
     # -- Users -----------------------------------------------------------
@@ -142,10 +159,54 @@ class AuthOps:
                 raise RuntimeError("Failed to create user")
             return cursor.lastrowid
 
+    def create_pending_oidc_user(
+        self, username: str, role: str = "user", email: Optional[str] = None
+    ) -> int:
+        """Pre-authorize a username to sign in via SSO before they've ever
+        logged in, for use when automatic account creation is disabled.
+
+        Creates a placeholder account (auth_provider='oidc', oidc_subject
+        NULL, no password) that get_or_create_oidc_user() links to the real
+        identity-provider subject the first time that exact username
+        completes an SSO login — at which point it behaves like any other
+        OIDC account. Until then it can't be used to log in at all (no
+        password, no linked subject)."""
+        if role not in VALID_ROLES:
+            raise ValueError(f"Invalid role: {role!r}")
+        with self.create_connection() as conn:
+            try:
+                cursor = conn.execute(
+                    "INSERT INTO users (username, email, role, auth_provider, oidc_subject) "
+                    "VALUES (?, ?, ?, 'oidc', NULL)",
+                    (username, email, role),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ValueError(
+                    f"A user named '{username}' already exists."
+                ) from exc
+            if cursor.lastrowid is None:
+                raise RuntimeError("Failed to create pending SSO user")
+            return cursor.lastrowid
+
     def get_or_create_oidc_user(
-        self, oidc_subject: str, username: str, email: Optional[str], default_role: str
+        self,
+        oidc_subject: str,
+        username: str,
+        email: Optional[str],
+        default_role: str,
+        auto_create_users: bool = True,
     ) -> dict[str, Any]:
-        """Find an existing OIDC-linked user by subject, or create one."""
+        """Find an existing OIDC-linked user by subject, link a matching
+        pending SSO invite (see create_pending_oidc_user), or create a new
+        account if auto_create_users allows it.
+
+        Deliberately does NOT link to an existing local (or differently-
+        linked OIDC) account purely by username match: that would let anyone
+        who controls a matching identity-provider username take over an
+        existing account. Only accounts explicitly pre-authorized via
+        create_pending_oidc_user (auth_provider='oidc', oidc_subject IS
+        NULL) are eligible for that kind of first-login linking.
+        """
         with self.create_connection() as conn:
             row = conn.execute(
                 f"SELECT {', '.join(USER_COLUMNS)} FROM users WHERE oidc_subject = ? AND auth_provider = 'oidc'",
@@ -153,6 +214,43 @@ class AuthOps:
             ).fetchone()
             if row:
                 return _user_row_to_dict(row)
+
+            existing = conn.execute(
+                f"SELECT {', '.join(USER_COLUMNS)} FROM users WHERE username = ?",
+                (username,),
+            ).fetchone()
+            if existing:
+                existing_data = _user_row_to_dict(existing)
+                if (
+                    existing_data["auth_provider"] == "oidc"
+                    and existing_data["oidc_subject"] is None
+                ):
+                    # A pending invite for this exact username — link it to
+                    # this identity-provider subject now.
+                    conn.execute(
+                        "UPDATE users SET oidc_subject = ?, email = COALESCE(email, ?) WHERE id = ?",
+                        (oidc_subject, email, existing_data["id"]),
+                    )
+                    user = self.get_user_by_id(existing_data["id"])
+                    if user is None:
+                        raise RuntimeError("Linked OIDC user could not be loaded")
+                    return user
+                raise OidcUsernameConflictError(
+                    f"Single sign-on could not sign you in: the username "
+                    f"'{username}' from your identity provider is already "
+                    "taken by another account. Ask an admin to rename or "
+                    "remove the existing account, pre-authorize your SSO "
+                    "username in User Management, or configure the identity "
+                    "provider to send a different username claim, then try "
+                    "again."
+                )
+
+            if not auto_create_users:
+                raise OidcUserNotProvisionedError(
+                    "Your account hasn't been set up yet. Ask an administrator "
+                    "to add you in User Management (pre-authorize your SSO "
+                    "username) before you can sign in."
+                )
 
             try:
                 cursor = conn.execute(
@@ -260,6 +358,7 @@ class AuthOps:
         enabled: bool = False,
         default_role: str = "user",
         disable_local_login: bool = False,
+        auto_create_users: bool = True,
     ) -> None:
         if default_role not in VALID_ROLES:
             raise ValueError(f"Invalid default_role: {default_role!r}")
@@ -267,13 +366,14 @@ class AuthOps:
             conn.execute(
                 """
                 INSERT INTO oidc_providers
-                    (id, name, issuer, client_id, client_secret, scopes, enabled, default_role, disable_local_login)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, name, issuer, client_id, client_secret, scopes, enabled, default_role, disable_local_login, auto_create_users)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name=excluded.name, issuer=excluded.issuer, client_id=excluded.client_id,
                     client_secret=excluded.client_secret, scopes=excluded.scopes,
                     enabled=excluded.enabled, default_role=excluded.default_role,
-                    disable_local_login=excluded.disable_local_login
+                    disable_local_login=excluded.disable_local_login,
+                    auto_create_users=excluded.auto_create_users
                 """,
                 (
                     name,
@@ -284,5 +384,6 @@ class AuthOps:
                     int(enabled),
                     default_role,
                     int(disable_local_login),
+                    int(auto_create_users),
                 ),
             )

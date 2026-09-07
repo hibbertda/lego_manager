@@ -90,7 +90,7 @@ def test_missing_metadata_task_flags_missing_label(app, admin_client):
     }
     app.db_ops.insert_set_data(set_data)
 
-    response = admin_client.post("/admin/tasks/missing_metadata/run")
+    response = admin_client.post("/utility/missing-metadata/run")
     assert response.status_code == 200
     assert b"Complete Set" in response.data
     assert b"label" in response.data

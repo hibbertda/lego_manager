@@ -1,6 +1,5 @@
 from flask import (
     Blueprint,
-    abort,
     current_app,
     flash,
     redirect,
@@ -10,25 +9,11 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
-from app import label_ops
 from app.auth_ops import VALID_ROLES
 from app.decorators import admin_required
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-# Registry of manual maintenance tasks available on the admin Tasks page.
-# Keyed by the URL slug used in /admin/tasks/<task_id>/run.
-TASKS = {
-    "missing_metadata": {
-        "label": "Find sets with missing metadata",
-        "description": (
-            "Scans your collection for sets missing a year, theme, piece "
-            "count, cover image, instructions, or (if APP_BASE_URL is "
-            "configured) a storage-box label, so you know what to fix "
-            "manually or retry from Brickset."
-        ),
-    },
-}
 
 
 @admin_bp.route("/")
@@ -71,48 +56,6 @@ def brickset():
         "admin_brickset.html",
         settings=settings,
         env_api_key_set=bool(current_app.config.get("BRICKSET_API_KEY")),
-    )
-
-
-@admin_bp.route("/tasks")
-@login_required
-@admin_required
-def tasks():
-    return render_template("admin_tasks.html", tasks=TASKS, ran_task=None, results=None)
-
-
-@admin_bp.route("/tasks/<task_id>/run", methods=["POST"])
-@login_required
-@admin_required
-def run_task(task_id):
-    if task_id not in TASKS:
-        abort(404)
-
-    if task_id == "missing_metadata":
-        results = current_app.db_ops.find_sets_missing_metadata()
-        base_url = current_app.config["APP_BASE_URL"]
-        if base_url:
-            # Labels are only ever generated once a base URL is configured
-            # (see app/label_ops.py), so flagging them as "missing" when it's
-            # unset would just be noise an admin can't act on yet.
-            sets_dir = current_app.config["SETS_DIR"]
-            results_by_id = {r["setID"]: r for r in results}
-            for set_data in current_app.db_ops.get_all_sets():
-                if label_ops.label_exists(set_data, sets_dir):
-                    continue
-                existing = results_by_id.get(set_data["setID"])
-                if existing:
-                    existing["missing_fields"].append("label")
-                else:
-                    set_data["missing_fields"] = ["label"]
-                    results.append(set_data)
-                    results_by_id[set_data["setID"]] = set_data
-            results.sort(key=lambda s: (s["name"] or "").lower())
-    else:  # pragma: no cover - unreachable, guarded by the TASKS membership check above
-        abort(404)
-
-    return render_template(
-        "admin_tasks.html", tasks=TASKS, ran_task=task_id, results=results
     )
 
 
@@ -233,6 +176,36 @@ def create_user():
     return redirect(url_for("admin.users"))
 
 
+@admin_bp.route("/users/create-sso", methods=["POST"])
+@login_required
+@admin_required
+def create_pending_sso_user():
+    """Pre-authorize a username for SSO login when automatic account
+    creation is disabled (see admin.update_oidc's auto_create_users flag).
+    The account has no password and can't do anything until that exact
+    username completes an SSO login, at which point it's linked to the
+    real identity-provider subject automatically."""
+    username = request.form.get("username", "").strip()
+    role = request.form.get("role", "user")
+
+    if role not in VALID_ROLES:
+        role = "user"
+
+    if not username:
+        flash("Username is required.", "error")
+    elif current_app.auth_ops.get_user_by_username(username):
+        flash("That username is already taken.", "error")
+    else:
+        current_app.auth_ops.create_pending_oidc_user(username, role=role)
+        flash(
+            f"'{username}' is pre-authorized to sign in via SSO. "
+            "The account activates automatically on their first login.",
+            "success",
+        )
+
+    return redirect(url_for("admin.users"))
+
+
 @admin_bp.route("/oidc", methods=["POST"])
 @login_required
 @admin_required
@@ -248,6 +221,7 @@ def update_oidc():
     default_role = request.form.get("default_role", "user")
     enabled = request.form.get("enabled") == "1"
     disable_local_login = request.form.get("disable_local_login") == "1"
+    auto_create_users = request.form.get("auto_create_users") == "1"
 
     if default_role not in VALID_ROLES:
         default_role = "user"
@@ -275,6 +249,7 @@ def update_oidc():
         enabled=enabled,
         default_role=default_role,
         disable_local_login=disable_local_login,
+        auto_create_users=auto_create_users,
     )
     current_app.oidc_oauth.reload()
     flash("SSO configuration saved.", "success")

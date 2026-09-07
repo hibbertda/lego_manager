@@ -974,15 +974,10 @@ def test_refresh_set_failure_shows_error(app, admin_client, monkeypatch):
     assert b"Failed to refresh from Brickset" in response.data
 
 
-def test_admin_tasks_page_loads(admin_client):
-    response = admin_client.get("/admin/tasks")
+def test_utility_missing_metadata_page_loads(user_client):
+    response = user_client.get("/utility/missing-metadata")
     assert response.status_code == 200
     assert b"Find sets with missing metadata" in response.data
-
-
-def test_admin_tasks_page_forbidden_for_non_admin(user_client):
-    response = user_client.get("/admin/tasks")
-    assert response.status_code == 403
 
 
 def test_run_missing_metadata_task_lists_incomplete_sets(app, admin_client):
@@ -1009,7 +1004,7 @@ def test_run_missing_metadata_task_lists_incomplete_sets(app, admin_client):
     )
 
     response = admin_client.post(
-        "/admin/tasks/missing_metadata/run",
+        "/utility/missing-metadata/run",
         data={"csrf_token": ""},
         follow_redirects=True,
     )
@@ -1034,7 +1029,7 @@ def test_run_missing_metadata_task_no_gaps_shows_success(app, admin_client):
     )
 
     response = admin_client.post(
-        "/admin/tasks/missing_metadata/run",
+        "/utility/missing-metadata/run",
         data={"csrf_token": ""},
         follow_redirects=True,
     )
@@ -1043,8 +1038,55 @@ def test_run_missing_metadata_task_no_gaps_shows_success(app, admin_client):
     assert b"No sets are missing metadata" in response.data
 
 
-def test_run_unknown_task_404s(admin_client):
-    response = admin_client.post(
-        "/admin/tasks/not-a-real-task/run", data={"csrf_token": ""}
+def test_owned_set_count_excludes_wishlist(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 970,
+            "number": "1",
+            "name": "Owned Set A",
+            "year": 2024,
+            "theme": "Icons",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
     )
-    assert response.status_code == 404
+    app.db_ops.insert_set_data(
+        {
+            "setID": 971,
+            "number": "2",
+            "name": "Owned Set B",
+            "year": 2024,
+            "theme": "Icons",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.insert_set_data(
+        {
+            "setID": 972,
+            "number": "3",
+            "name": "Wishlist Set",
+            "year": 2024,
+            "theme": "Icons",
+            "pieces": 1,
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    app.db_ops.update_build_status_only(972, "wishlist")
+
+    assert app.db_ops.count_owned_sets() == 2
+
+    response = admin_client.get("/setlist")
+    assert response.status_code == 200
+    assert b"sets-counter-value" in response.data
+    assert b">2<" in response.data
+
+
+def test_sets_page_has_mobile_filters_toggle(admin_client):
+    response = admin_client.get("/setlist")
+    assert response.status_code == 200
+    assert b'data-bs-target="#filtersCollapse"' in response.data
+    assert b'id="filtersCollapse"' in response.data

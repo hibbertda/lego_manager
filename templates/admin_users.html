@@ -26,7 +26,11 @@
                             <tr>
                                 <td>{{ user.username }}{% if user.id == current_user.id %} <span class="badge bg-secondary-subtle text-secondary-emphasis">you</span>{% endif %}</td>
                                 <td class="text-muted small">{{ user.email or '—' }}</td>
-                                <td><span class="badge bg-light text-dark border">{{ user.auth_provider }}</span></td>
+                                <td><span class="badge bg-light text-dark border">{{ user.auth_provider }}</span>
+                                    {% if user.auth_provider == 'oidc' and not user.oidc_subject %}
+                                        <span class="badge bg-info-subtle text-info-emphasis">pending SSO</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <form method="post" action="{{ url_for('admin.update_user_role', user_id=user.id) }}" class="d-flex align-items-center gap-1">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -65,6 +69,7 @@
             </div>
         </div>
 
+        <div class="d-flex flex-wrap gap-3">
         <div class="card" style="max-width: 28rem;">
             <div class="card-body">
                 <h2 class="h6 card-title">Create user</h2>
@@ -89,6 +94,36 @@
                     <button type="submit" class="btn btn-primary">Create user</button>
                 </form>
             </div>
+        </div>
+
+        <div class="card" style="max-width: 28rem;">
+            <div class="card-body">
+                <h2 class="h6 card-title">Pre-authorize SSO user</h2>
+                <p class="small text-muted">
+                    Allow a specific username to sign in via SSO before they've ever
+                    logged in &mdash; useful when
+                    <a href="{{ url_for('admin.sso') }}">automatic account creation</a>
+                    is disabled. The account has no password of its own and activates
+                    automatically the first time that username completes an SSO login.
+                </p>
+                <form method="post" action="{{ url_for('admin.create_pending_sso_user') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="new_sso_username" class="form-label">SSO username</label>
+                        <input type="text" class="form-control" id="new_sso_username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_sso_role" class="form-label">Role</label>
+                        <select class="form-select" id="new_sso_role" name="role">
+                            {% for r in roles %}
+                                <option value="{{ r }}">{{ r|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary">Pre-authorize</button>
+                </form>
+            </div>
+        </div>
         </div>
     </div>
 </div>

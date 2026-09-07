@@ -440,3 +440,12 @@ def test_list_sets_explicit_wishlist_status_filter(db_ops):
 
     assert total == 1
     assert results[0]["setID"] == 2
+
+
+def test_count_owned_sets_excludes_wishlist(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=1))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=2))
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=3))
+    db_ops.update_build_status_only(3, "wishlist")
+
+    assert db_ops.count_owned_sets() == 2

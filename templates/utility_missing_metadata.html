@@ -1,30 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Tasks{% endblock %}
+{% block title %}Missing Metadata &ndash; Utility{% endblock %}
 {% block content %}
 <div class="row">
     <div class="col-md-3 mb-3">
-        {% include "_admin_sidebar.html" %}
+        {% include "_utility_sidebar.html" %}
     </div>
     <div class="col-md-9">
-        <h1 class="h3 mb-3">Tasks</h1>
-        <p class="text-muted">Manual maintenance actions you can run on demand.</p>
+        <h1 class="h3 mb-3">Find sets with missing metadata</h1>
+        <p class="text-muted">
+            Scans your collection for sets missing a year, theme, piece
+            count, cover image, instructions, or (if APP_BASE_URL is
+            configured) a storage-box label, so you know what to fix
+            manually or retry from Brickset.
+        </p>
 
-        {% for task_id, task in tasks.items() %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h2 class="h6 card-title">{{ task.label }}</h2>
-                    <p class="card-text small text-muted">{{ task.description }}</p>
-                    <form method="post" action="{{ url_for('admin.run_task', task_id=task_id) }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="bi bi-play-fill"></i> Run
-                        </button>
-                    </form>
-                </div>
-            </div>
-        {% endfor %}
+        <form method="post" action="{{ url_for('utility.run_missing_metadata') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-play-fill"></i> Run
+            </button>
+        </form>
 
-        {% if ran_task == "missing_metadata" %}
+        {% if ran %}
             <hr class="my-4">
             <h2 class="h5 mb-3">Results: sets with missing metadata</h2>
             {% if results %}

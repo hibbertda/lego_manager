@@ -178,6 +178,50 @@ button.app-sidebar-nav-btn,
     padding: .5rem .85rem .25rem;
 }
 
+// "My Sets" counter badge at the top of the sidebar nav — a little brick-red
+// gradient card with a big bold number, styled to feel like a fun collection
+// stat rather than a plain nav link.
+.sets-counter-card {
+    background: linear-gradient(135deg, $lego-red, $lego-red-dark);
+    color: #fff;
+    border-radius: .75rem;
+    padding: .65rem .9rem;
+    box-shadow: 0 .25rem .6rem rgba($lego-red-dark, .35);
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.sets-counter-card:hover {
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 .4rem .85rem rgba($lego-red-dark, .45);
+}
+
+.sets-counter-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: .6rem;
+    background-color: rgba(255, 255, 255, .18);
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.sets-counter-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.sets-counter-label {
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    opacity: .9;
+}
+
 // Subtle lift effect for grid/card links (set grid view, etc.).
 .card-hover-lift {
     transition: transform .12s ease, box-shadow .12s ease;

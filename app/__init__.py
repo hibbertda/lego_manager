@@ -117,6 +117,15 @@ def create_app(config_class: type = Config) -> Flask:
         return {"brickset_configured": bool(app.brickset_api.api_key)}
 
     @app.context_processor
+    def _inject_owned_set_count():
+        # Powers the "My Sets" counter badge in the sidebar nav (base.html),
+        # present on every authenticated page, so it's injected globally
+        # rather than passed explicitly by every view.
+        if not current_user.is_authenticated:
+            return {}
+        return {"owned_set_count": app.db_ops.count_owned_sets()}
+
+    @app.context_processor
     def _inject_build_status_meta():
         # Single source of truth for build_status display (badge color/icon,
         # dropdown labels, sidebar status filter) — see BUILD_STATUS_META in

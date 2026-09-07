@@ -29,8 +29,17 @@
     </div>
 </div>
 <div class="row sets-page-container mx-auto gx-4">
+    <div class="col-12 d-md-none mb-2">
+        <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2"
+                type="button" data-bs-toggle="collapse" data-bs-target="#filtersCollapse"
+                aria-expanded="false" aria-controls="filtersCollapse">
+            <i class="bi bi-funnel-fill"></i> Filters
+        </button>
+    </div>
     <div class="col-12 col-md-auto sets-filter-col mb-3">
-        {% include "_sidebar.html" %}
+        <div class="collapse d-md-block" id="filtersCollapse">
+            {% include "_sidebar.html" %}
+        </div>
     </div>
     <div class="col-12 col-md sets-content-col">
         {% if not sets %}

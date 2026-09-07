@@ -363,3 +363,135 @@ def test_oidc_callback_username_conflict_redirects_with_flash_instead_of_500(
     assert app.auth_ops.get_user_by_username("daniel")["auth_provider"] == "local"
     # Landed back on /login, not a raw 500 error page.
     assert b'name="username"' in response.data
+
+
+def test_oidc_callback_denied_when_auto_create_disabled_and_no_account(app, client):
+    app.auth_ops.save_oidc_provider(
+        name="Authentik",
+        issuer="https://auth.example.com/application/o/lego/",
+        client_id="cid",
+        client_secret="csecret",
+        enabled=True,
+        disable_local_login=False,
+        auto_create_users=False,
+    )
+    app.oidc_oauth.reload()
+
+    fake_userinfo = {"sub": "authentik-subject-999", "preferred_username": "newperson"}
+    app.oidc_oauth.oidc.authorize_access_token = lambda *a, **k: {
+        "userinfo": fake_userinfo
+    }
+
+    response = client.get(
+        "/login/oidc/callback?state=irrelevant&code=irrelevant",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"hasn&#39;t been set up yet" in response.data or b"Ask an administrator" in response.data
+    assert app.auth_ops.get_user_by_username("newperson") is None
+    # Landed back on /login, not a raw 500 error page.
+    assert b'name="username"' in response.data
+
+
+def test_oidc_callback_links_pending_invite_when_auto_create_disabled(app, client):
+    app.auth_ops.create_pending_oidc_user("preauthorized", role="user")
+    app.auth_ops.save_oidc_provider(
+        name="Authentik",
+        issuer="https://auth.example.com/application/o/lego/",
+        client_id="cid",
+        client_secret="csecret",
+        enabled=True,
+        disable_local_login=False,
+        auto_create_users=False,
+    )
+    app.oidc_oauth.reload()
+
+    fake_userinfo = {
+        "sub": "authentik-subject-111",
+        "preferred_username": "preauthorized",
+        "email": "person@example.com",
+    }
+    app.oidc_oauth.oidc.authorize_access_token = lambda *a, **k: {
+        "userinfo": fake_userinfo
+    }
+
+    response = client.get(
+        "/login/oidc/callback?state=irrelevant&code=irrelevant",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    linked = app.auth_ops.get_user_by_username("preauthorized")
+    assert linked["auth_provider"] == "oidc"
+    assert linked["oidc_subject"] == "authentik-subject-111"
+    assert linked["email"] == "person@example.com"
+
+    # A second login from the same subject should reuse the now-linked
+    # account rather than erroring or re-linking.
+    response2 = client.post("/logout")
+    response2 = client.get(
+        "/login/oidc/callback?state=irrelevant&code=irrelevant",
+        follow_redirects=True,
+    )
+    assert response2.status_code == 200
+
+
+def test_oidc_callback_auto_creates_when_enabled_default(app, client):
+    app.auth_ops.save_oidc_provider(
+        name="Authentik",
+        issuer="https://auth.example.com/application/o/lego/",
+        client_id="cid",
+        client_secret="csecret",
+        enabled=True,
+        disable_local_login=False,
+        auto_create_users=True,
+    )
+    app.oidc_oauth.reload()
+
+    fake_userinfo = {"sub": "authentik-subject-222", "preferred_username": "brandnew"}
+    app.oidc_oauth.oidc.authorize_access_token = lambda *a, **k: {
+        "userinfo": fake_userinfo
+    }
+
+    response = client.get(
+        "/login/oidc/callback?state=irrelevant&code=irrelevant",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    created = app.auth_ops.get_user_by_username("brandnew")
+    assert created is not None
+    assert created["auth_provider"] == "oidc"
+    assert created["oidc_subject"] == "authentik-subject-222"
+
+
+def test_admin_can_pre_authorize_sso_user(app, admin_client):
+    response = admin_client.post(
+        "/admin/users/create-sso",
+        data={"username": "futureuser", "role": "user"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"pre-authorized" in response.data.lower()
+
+    pending = app.auth_ops.get_user_by_username("futureuser")
+    assert pending is not None
+    assert pending["auth_provider"] == "oidc"
+    assert pending["oidc_subject"] is None
+
+
+def test_admin_cannot_pre_authorize_duplicate_sso_username(app, admin_client, admin_user):
+    response = admin_client.post(
+        "/admin/users/create-sso",
+        data={"username": "admin", "role": "user"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"already taken" in response.data
+
+
+def test_admin_sso_page_shows_auto_create_users_toggle(admin_client):
+    response = admin_client.get("/admin/sso")
+    assert response.status_code == 200
+    assert b'name="auto_create_users"' in response.data

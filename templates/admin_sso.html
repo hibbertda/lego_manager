@@ -51,6 +51,23 @@
                         <label class="form-check-label" for="enabled">Enable SSO login</label>
                     </div>
                     <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="auto_create_users" name="auto_create_users" value="1"
+                               {{ 'checked' if not provider or provider.auto_create_users }}>
+                        <label class="form-check-label" for="auto_create_users">
+                            Automatically create a new account for any user who successfully
+                            signs in via SSO for the first time
+                        </label>
+                    </div>
+                    <div class="alert alert-secondary small" role="note">
+                        <strong>Turning this off?</strong> New SSO logins are then rejected
+                        unless an admin has already added them. In
+                        <a href="{{ url_for('admin.users') }}">User Management</a>, use
+                        "Pre-authorize SSO user" to allow a specific username through &mdash;
+                        their account activates automatically the first time they sign in
+                        with that identity, without you needing to know their password or
+                        any provider-side details up front.
+                    </div>
+                    <div class="form-check mb-3">
                         <input type="checkbox" class="form-check-input" id="disable_local_login" name="disable_local_login" value="1"
                                {{ 'checked' if provider and provider.disable_local_login }}>
                         <label class="form-check-label" for="disable_local_login">

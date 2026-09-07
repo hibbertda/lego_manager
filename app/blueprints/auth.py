@@ -13,7 +13,7 @@ from flask import (
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app import limiter
-from app.auth_ops import OidcUsernameConflictError
+from app.auth_ops import OidcUsernameConflictError, OidcUserNotProvisionedError
 from app.user import User
 
 auth_bp = Blueprint("auth", __name__)
@@ -195,6 +195,7 @@ def oidc_callback():
             username=username,
             email=email,
             default_role=provider["default_role"],
+            auto_create_users=provider.get("auto_create_users", True),
         )
     except OidcUsernameConflictError as exc:
         # The username derived from the IdP's claims collides with an
@@ -204,6 +205,14 @@ def oidc_callback():
         # username match alone would let anyone who controls a matching IdP
         # username take over an existing local account.
         logger.warning("OIDC login blocked by a username conflict: %s", exc)
+        flash(str(exc), "error")
+        return redirect(url_for("auth.login"))
+    except OidcUserNotProvisionedError as exc:
+        # Automatic account creation is disabled and no account (real or
+        # pre-authorized pending invite) exists for this identity yet — a
+        # normal, expected outcome for an access-controlled deployment, not
+        # a server error.
+        logger.info("OIDC login denied: no account provisioned for %s", username)
         flash(str(exc), "error")
         return redirect(url_for("auth.login"))
 
