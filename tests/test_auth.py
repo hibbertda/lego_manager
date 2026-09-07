@@ -388,7 +388,10 @@ def test_oidc_callback_denied_when_auto_create_disabled_and_no_account(app, clie
     )
 
     assert response.status_code == 200
-    assert b"hasn&#39;t been set up yet" in response.data or b"Ask an administrator" in response.data
+    assert (
+        b"hasn&#39;t been set up yet" in response.data
+        or b"Ask an administrator" in response.data
+    )
     assert app.auth_ops.get_user_by_username("newperson") is None
     # Landed back on /login, not a raw 500 error page.
     assert b'name="username"' in response.data
@@ -481,7 +484,9 @@ def test_admin_can_pre_authorize_sso_user(app, admin_client):
     assert pending["oidc_subject"] is None
 
 
-def test_admin_cannot_pre_authorize_duplicate_sso_username(app, admin_client, admin_user):
+def test_admin_cannot_pre_authorize_duplicate_sso_username(
+    app, admin_client, admin_user
+):
     response = admin_client.post(
         "/admin/users/create-sso",
         data={"username": "admin", "role": "user"},

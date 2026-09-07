@@ -181,9 +181,7 @@ class AuthOps:
                     (username, email, role),
                 )
             except sqlite3.IntegrityError as exc:
-                raise ValueError(
-                    f"A user named '{username}' already exists."
-                ) from exc
+                raise ValueError(f"A user named '{username}' already exists.") from exc
             if cursor.lastrowid is None:
                 raise RuntimeError("Failed to create pending SSO user")
             return cursor.lastrowid

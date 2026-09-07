@@ -73,4 +73,3 @@ def run_missing_metadata():
         results.sort(key=lambda s: (s["name"] or "").lower())
 
     return render_template("utility_missing_metadata.html", ran=True, results=results)
-

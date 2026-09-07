@@ -15,7 +15,6 @@ from app.decorators import admin_required
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-
 @admin_bp.route("/")
 @login_required
 @admin_required
