@@ -6,6 +6,27 @@ and it pulls set details and box art from
 building-instructions PDF directly from LEGO.com, so you can browse your
 collection and re-view any set's instructions from the browser.
 
+## Screenshots
+
+| Collection (grid view) | Collection (list view) |
+| --- | --- |
+| ![Grid view of a LEGO collection](docs/screenshots/sets-grid.png) | ![List view of a LEGO collection](docs/screenshots/sets-list.png) |
+
+| Set detail & instructions viewer | Storage-box labels |
+| --- | --- |
+| ![Set detail page with PDF.js instructions viewer](docs/screenshots/set-detail.png) | ![Printable storage-box labels](docs/screenshots/storage-labels.png) |
+
+<details>
+<summary>Admin area: user management, SSO, and Brickset API settings</summary>
+
+| User management | Single Sign-On (OIDC) |
+| --- | --- |
+| ![Admin user management page](docs/screenshots/admin-users.png) | ![Admin single sign-on configuration page](docs/screenshots/admin-sso.png) |
+
+![Admin Brickset API settings page](docs/screenshots/admin-brickset.png)
+
+</details>
+
 ## Features
 
 - Add a set by number — fetches metadata, box art, and the official
