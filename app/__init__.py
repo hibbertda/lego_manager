@@ -164,6 +164,7 @@ def create_app(config_class: type = Config) -> Flask:
             "auth.oidc_callback",
             "auth.local_login",
             "static",
+            "spa.index",
         }
         endpoint = request.endpoint
         if endpoint is None or endpoint in open_endpoints:
@@ -177,9 +178,11 @@ def create_app(config_class: type = Config) -> Flask:
         return None
 
     from app.blueprints.admin import admin_bp
+    from app.blueprints.api import api_bp
     from app.blueprints.auth import auth_bp
     from app.blueprints.main import main_bp
     from app.blueprints.sets import sets_bp
+    from app.blueprints.spa import spa_bp
     from app.blueprints.utility import utility_bp
 
     app.register_blueprint(main_bp)
@@ -187,5 +190,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(utility_bp)
+    app.register_blueprint(api_bp)
+    app.register_blueprint(spa_bp)
 
     return app
