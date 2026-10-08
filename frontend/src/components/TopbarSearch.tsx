@@ -53,7 +53,6 @@ export default function TopbarSearch() {
   return (
     <div className="topbar-search" ref={containerRef}>
       <form onSubmit={handleSubmit}>
-        <span className="search-icon">🔍</span>
         <input
           type="text"
           placeholder="Search your sets..."

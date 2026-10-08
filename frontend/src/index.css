@@ -205,16 +205,8 @@ p {
   width: 100%;
   border: none;
   border-radius: var(--radius-sm);
-  padding: 0.45rem 0.8rem 0.45rem 2.1rem;
+  padding: 0.45rem 0.8rem;
   font-size: 0.9rem;
-}
-
-.topbar-search .search-icon {
-  position: absolute;
-  left: 0.65rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-muted);
 }
 
 .topbar-search-results {
