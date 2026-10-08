@@ -564,7 +564,6 @@ textarea:focus {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   text-decoration: none;
@@ -583,6 +582,8 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
 }
 
 .set-thumb-wrap img {
