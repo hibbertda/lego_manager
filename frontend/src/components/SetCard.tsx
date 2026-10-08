@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Heart, Package } from 'lucide-react';
 import { api } from '../api/client';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
+import { STATUS_ICONS } from '../statusIcons';
 import type { SetSummary } from '../types';
 
 interface Props {
@@ -17,6 +19,7 @@ export default function SetCard({ set, view, wishlistMode }: Props) {
   const [status, setStatus] = useState(set.build_status);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const meta = BUILD_STATUS_META[status] ?? BUILD_STATUS_META.not_started;
+  const StatusIcon = STATUS_ICONS[status] ?? STATUS_ICONS.not_started;
 
   async function toggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
@@ -39,14 +42,14 @@ export default function SetCard({ set, view, wishlistMode }: Props) {
     <div style={{ position: 'relative' }}>
       <button
         className={`badge ${meta.badgeClass}`}
-        style={{ border: 'none', cursor: 'pointer' }}
+        style={{ border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           setStatusMenuOpen((v) => !v);
         }}
       >
-        {meta.emoji} {meta.label}
+        <StatusIcon size={13} /> {meta.label}
       </button>
       {statusMenuOpen && (
         <div
@@ -54,16 +57,19 @@ export default function SetCard({ set, view, wishlistMode }: Props) {
           style={{ position: 'absolute', top: '100%', left: 0, zIndex: 10, padding: '0.3rem', minWidth: '9rem' }}
           onMouseLeave={() => setStatusMenuOpen(false)}
         >
-          {OWNED_BUILD_STATUSES.map((s) => (
-            <button
-              key={s}
-              className="nav-button"
-              style={{ fontSize: '0.8rem' }}
-              onClick={(e) => changeStatus(e, s)}
-            >
-              {BUILD_STATUS_META[s].emoji} {BUILD_STATUS_META[s].label}
-            </button>
-          ))}
+          {OWNED_BUILD_STATUSES.map((s) => {
+            const ItemIcon = STATUS_ICONS[s];
+            return (
+              <button
+                key={s}
+                className="nav-button"
+                style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                onClick={(e) => changeStatus(e, s)}
+              >
+                <ItemIcon size={14} /> {BUILD_STATUS_META[s].label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -94,7 +100,7 @@ export default function SetCard({ set, view, wishlistMode }: Props) {
           onClick={toggleFavorite}
           aria-pressed={favorite}
         >
-          {favorite ? '❤️' : '🤍'}
+          <Heart size={16} fill={favorite ? 'currentColor' : 'none'} />
         </button>
       </Link>
     );
@@ -107,10 +113,10 @@ export default function SetCard({ set, view, wishlistMode }: Props) {
         onClick={toggleFavorite}
         aria-pressed={favorite}
       >
-        {favorite ? '❤️' : '🤍'}
+        <Heart size={16} fill={favorite ? 'currentColor' : 'none'} />
       </button>
       <div className="set-thumb-wrap">
-        {set.image ? <img src={set.image} alt="" /> : <span style={{ fontSize: '2.5rem' }}>📦</span>}
+        {set.image ? <img src={set.image} alt="" /> : <Package size={40} strokeWidth={1.5} className="text-muted" />}
       </div>
       <div className="set-grid-card-body">
         <div className="set-name" title={set.name}>

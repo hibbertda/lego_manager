@@ -417,6 +417,12 @@ textarea:focus {
   outline-offset: 1px;
 }
 
+/* ---------- Utility classes ---------- */
+
+.text-muted {
+  color: var(--color-muted);
+}
+
 /* ---------- Cards / alerts / badges ---------- */
 
 .card {
@@ -675,6 +681,9 @@ textarea:focus {
 .empty-state .empty-icon {
   font-size: 3rem;
   margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: center;
+  color: var(--color-border);
 }
 
 .sentinel {
@@ -736,6 +745,8 @@ textarea:focus {
   font-size: 1.1rem;
   cursor: pointer;
   color: var(--color-muted);
+  display: flex;
+  align-items: center;
 }
 
 .method-toggle {
@@ -754,6 +765,10 @@ textarea:focus {
   cursor: pointer;
   font-weight: 600;
   font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
 }
 
 .method-toggle button.active {

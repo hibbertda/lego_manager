@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 // Vite bundles the worker as its own asset and gives us a served URL for it;
 // self-contained within the SPA bundle (mirrors the legacy self-hosted
@@ -182,7 +183,7 @@ export default function PdfViewer({ urls, setId, initialPage }: PdfViewerProps) 
           onClick={() => goToPage(currentPage - 1)}
           disabled={currentPage <= 1}
         >
-          ◀
+          <ChevronLeft size={16} />
         </button>
         <span className="pdf-viewer-page-controls">
           <input
@@ -212,14 +213,14 @@ export default function PdfViewer({ urls, setId, initialPage }: PdfViewerProps) 
           onClick={() => goToPage(currentPage + 1)}
           disabled={!numPages || currentPage >= numPages}
         >
-          ▶
+          <ChevronRight size={16} />
         </button>
         <div className="pdf-viewer-divider" />
         <button type="button" className="btn btn-sm btn-outline" aria-label="Zoom out" onClick={() => zoom(-SCALE_STEP)}>
-          −
+          <ZoomOut size={16} />
         </button>
         <button type="button" className="btn btn-sm btn-outline" aria-label="Zoom in" onClick={() => zoom(SCALE_STEP)}>
-          +
+          <ZoomIn size={16} />
         </button>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Blocks } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -28,11 +29,15 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <h1>
-          <span>🧱</span> LEGO Manager
+          <Blocks size={24} style={{ verticalAlign: 'middle' }} /> LEGO Manager
         </h1>
         <p className="muted">Sign in to manage your collection.</p>
 
-        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {error && (
+          <div className="alert alert-error">
+            <AlertTriangle size={15} /> {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="field">

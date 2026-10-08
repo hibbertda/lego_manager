@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, Wrench } from 'lucide-react';
 import { api, extractErrorMessage } from '../api/client';
 import type { SetSummary } from '../types';
 import { UtilityTabs } from './UtilityLabelsPage';
@@ -29,7 +30,9 @@ export default function UtilityMissingMetadataPage() {
 
   return (
     <div>
-      <h1>🛠 Utility — Missing Metadata</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Wrench size={20} /> Utility — Missing Metadata
+      </h1>
       <UtilityTabs />
 
       <p className="text-muted">
@@ -50,12 +53,15 @@ export default function UtilityMissingMetadataPage() {
         <div style={{ marginTop: '1.5rem' }}>
           {!data.base_url_configured && (
             <div className="alert alert-error">
-              ⚠️ APP_BASE_URL isn't configured, so missing labels can't be detected or generated.
+              <AlertTriangle size={15} /> APP_BASE_URL isn't configured, so missing labels can't be detected or
+              generated.
             </div>
           )}
           {data.results.length === 0 ? (
             <div className="empty-state">
-              <p>✅ Nothing missing — all sets look complete.</p>
+              <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                <CheckCircle2 size={16} /> Nothing missing — all sets look complete.
+              </p>
             </div>
           ) : (
             <table className="table">

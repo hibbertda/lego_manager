@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Blocks } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function SetupPage() {
@@ -34,11 +35,15 @@ export default function SetupPage() {
     <div className="auth-page">
       <div className="auth-card">
         <h1>
-          <span>🧱</span> Welcome
+          <Blocks size={24} style={{ verticalAlign: 'middle' }} /> Welcome
         </h1>
         <p className="muted">Create the initial admin account to get started.</p>
 
-        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {error && (
+          <div className="alert alert-error">
+            <AlertTriangle size={15} /> {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="field">

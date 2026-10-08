@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
+import { AlertTriangle, CheckCircle2, Settings } from 'lucide-react';
 import AdminTabs from '../components/AdminTabs';
 import type { BricksetSettings } from '../types';
 
@@ -46,11 +47,19 @@ export default function AdminBricksetPage() {
 
   return (
     <div>
-      <h1>⚙️ Admin — Brickset API</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={20} /> Admin — Brickset API</h1>
       <AdminTabs />
 
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-      {message && <div className="alert alert-success">✅ {message}</div>}
+      {error && (
+        <div className="alert alert-error">
+          <AlertTriangle size={15} /> {error}
+        </div>
+      )}
+      {message && (
+        <div className="alert alert-success">
+          <CheckCircle2 size={15} /> {message}
+        </div>
+      )}
 
       {data?.env_api_key_set && !data.settings?.api_key && (
         <div className="alert alert-success">An API key is configured via environment variable.</div>

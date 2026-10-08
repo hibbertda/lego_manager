@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useInfiniteSets, type SetsFilters } from '../hooks/useInfiniteSets';
 import { SORT_LABELS, DEFAULT_SORT } from '../constants';
+import { LayoutGrid, List, Package, Star } from 'lucide-react';
 import FilterSidebar from '../components/FilterSidebar';
 import SetCard from '../components/SetCard';
 
@@ -61,7 +62,10 @@ export default function SetsListPage({ mode }: { mode: 'sets' | 'wishlist' }) {
   return (
     <div>
       <div className="page-header">
-        <h1>{mode === 'wishlist' ? '⭐ Wishlist' : '📦 My Sets'}</h1>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {mode === 'wishlist' ? <Star size={20} /> : <Package size={20} />}
+          {mode === 'wishlist' ? 'Wishlist' : 'My Sets'}
+        </h1>
         <div className="toolbar">
           <select value={filters.sort} onChange={(e) => updateFilters({ sort: e.target.value })}>
             {Object.entries(sortLabels).map(([key, label]) => (
@@ -75,13 +79,13 @@ export default function SetsListPage({ mode }: { mode: 'sets' | 'wishlist' }) {
               className={`btn ${filters.view === 'grid' ? 'active' : ''}`}
               onClick={() => updateFilters({ view: 'grid' })}
             >
-              ▦ Grid
+              <LayoutGrid size={15} /> Grid
             </button>
             <button
               className={`btn ${filters.view === 'list' ? 'active' : ''}`}
               onClick={() => updateFilters({ view: 'list' })}
             >
-              ☰ List
+              <List size={15} /> List
             </button>
           </div>
         </div>
@@ -105,7 +109,7 @@ export default function SetsListPage({ mode }: { mode: 'sets' | 'wishlist' }) {
 
           {!query.isLoading && sets.length === 0 && (
             <div className="empty-state">
-              <div className="empty-icon">{mode === 'wishlist' ? '⭐' : '📦'}</div>
+              <div className="empty-icon">{mode === 'wishlist' ? <Star size={40} strokeWidth={1.5} /> : <Package size={40} strokeWidth={1.5} />}</div>
               {mode === 'wishlist' ? (
                 <p>No sets on your wishlist yet. Add one via "Add a Set" and pick the Wishlist category.</p>
               ) : (

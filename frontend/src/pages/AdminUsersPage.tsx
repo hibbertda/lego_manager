@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { AlertTriangle, CheckCircle2, Settings } from 'lucide-react';
 import AdminTabs from '../components/AdminTabs';
 import type { AdminUser } from '../types';
 
@@ -96,11 +97,19 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h1>⚙️ Admin — Users</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={20} /> Admin — Users</h1>
       <AdminTabs />
 
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-      {message && <div className="alert alert-success">✅ {message}</div>}
+      {error && (
+        <div className="alert alert-error">
+          <AlertTriangle size={15} /> {error}
+        </div>
+      )}
+      {message && (
+        <div className="alert alert-success">
+          <CheckCircle2 size={15} /> {message}
+        </div>
+      )}
 
       {isLoading ? (
         <span className="spinner" />

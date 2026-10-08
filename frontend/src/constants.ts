@@ -14,12 +14,12 @@ export const ALL_BUILD_STATUSES = [
 
 export const OWNED_BUILD_STATUSES = ['not_started', 'in_progress', 'complete', 'storage'] as const;
 
-export const BUILD_STATUS_META: Record<string, { label: string; emoji: string; badgeClass: string }> = {
-  not_started: { label: 'Not Started', emoji: '▫️', badgeClass: 'badge-secondary' },
-  in_progress: { label: 'In Progress', emoji: '🛠', badgeClass: 'badge-warning' },
-  complete: { label: 'Complete', emoji: '✅', badgeClass: 'badge-success' },
-  storage: { label: 'Storage', emoji: '🗄', badgeClass: 'badge-info' },
-  wishlist: { label: 'Wishlist', emoji: '⭐', badgeClass: 'badge-primary' },
+export const BUILD_STATUS_META: Record<string, { label: string; badgeClass: string }> = {
+  not_started: { label: 'Not Started', badgeClass: 'badge-secondary' },
+  in_progress: { label: 'In Progress', badgeClass: 'badge-warning' },
+  complete: { label: 'Complete', badgeClass: 'badge-success' },
+  storage: { label: 'Storage', badgeClass: 'badge-info' },
+  wishlist: { label: 'Wishlist', badgeClass: 'badge-primary' },
 };
 
 export const DEFAULT_SORT = 'name';

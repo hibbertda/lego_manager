@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
+import { AlertTriangle, CheckCircle2, Settings } from 'lucide-react';
 import AdminTabs from '../components/AdminTabs';
 import type { OidcProvider } from '../types';
 
@@ -62,11 +63,19 @@ export default function AdminSsoPage() {
 
   return (
     <div>
-      <h1>⚙️ Admin — Single Sign-On</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={20} /> Admin — Single Sign-On</h1>
       <AdminTabs />
 
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-      {message && <div className="alert alert-success">✅ {message}</div>}
+      {error && (
+        <div className="alert alert-error">
+          <AlertTriangle size={15} /> {error}
+        </div>
+      )}
+      {message && (
+        <div className="alert alert-success">
+          <CheckCircle2 size={15} /> {message}
+        </div>
+      )}
 
       <div className="card" style={{ padding: '1.25rem', maxWidth: '36rem' }}>
         <form onSubmit={handleSubmit}>

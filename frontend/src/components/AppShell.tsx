@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Blocks, LogOut, Package, Plus, Settings, Star, Wrench } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import TopbarSearch from './TopbarSearch';
 import AddSetModal from './AddSetModal';
@@ -19,7 +20,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <div>
       <header className="topbar">
         <Link to="/sets" className="brand">
-          <span className="brand-icon">🧱</span>
+          <Blocks className="brand-icon" size={22} />
           <span>LEGO Manager</span>
         </Link>
         <TopbarSearch />
@@ -37,10 +38,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <div className="user-menu-dropdown" onMouseLeave={() => setUserMenuOpen(false)}>
               {session?.user?.is_admin && (
                 <Link to="/admin/users" onClick={() => setUserMenuOpen(false)}>
-                  ⚙️ Admin
+                  <Settings size={15} /> Admin
                 </Link>
               )}
-              <button onClick={handleLogout}>↪ Logout</button>
+              <button onClick={handleLogout}>
+                <LogOut size={15} /> Logout
+              </button>
             </div>
           )}
         </div>
@@ -49,7 +52,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div className="app-shell">
         <aside className="app-sidebar">
           <Link to="/sets" className="counter-card">
-            <span className="counter-icon">📦</span>
+            <Package className="counter-icon" size={20} />
             <span>
               <span className="counter-value">{session?.owned_set_count ?? 0}</span>
               <span className="counter-label" style={{ display: 'block' }}>
@@ -60,16 +63,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
           <nav className="nav-group">
             <NavLink to="/sets" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-              📦 My Sets
+              <Package size={16} /> My Sets
             </NavLink>
             <NavLink
               to="/wishlist"
               className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
             >
-              ⭐ Wishlist
+              <Star size={16} /> Wishlist
             </NavLink>
             <button className="nav-button" onClick={() => setAddSetOpen(true)}>
-              ➕ Add a Set
+              <Plus size={16} /> Add a Set
             </button>
           </nav>
 
@@ -79,14 +82,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 to="/utility/labels"
                 className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
               >
-                🛠 Utility
+                <Wrench size={16} /> Utility
               </NavLink>
               {session?.user?.is_admin && (
                 <NavLink
                   to="/admin/users"
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
-                  ⚙️ Admin Area
+                  <Settings size={16} /> Admin Area
                 </NavLink>
               )}
             </nav>

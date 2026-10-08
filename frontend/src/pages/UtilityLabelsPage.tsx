@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, NavLink } from 'react-router-dom';
+import { AlertTriangle, Wrench } from 'lucide-react';
 import { api } from '../api/client';
 import type { SetSummary } from '../types';
 
@@ -31,13 +32,15 @@ export default function UtilityLabelsPage() {
 
   return (
     <div>
-      <h1>🛠 Utility — Labels</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Wrench size={20} /> Utility — Labels
+      </h1>
       <UtilityTabs />
 
       {!isLoading && !data?.base_url_configured && (
         <div className="alert alert-error">
-          ⚠️ APP_BASE_URL isn't configured, so storage-box labels can't be generated yet. Ask an administrator to
-          set it.
+          <AlertTriangle size={15} /> APP_BASE_URL isn't configured, so storage-box labels can't be generated yet.
+          Ask an administrator to set it.
         </div>
       )}
 

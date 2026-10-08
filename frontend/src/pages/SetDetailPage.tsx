@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { AlertTriangle, CheckCircle2, Package, Pencil, RefreshCw, Tag, Trash2, X } from 'lucide-react';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
 import type { SetDetailResponse } from '../types';
 
@@ -107,7 +108,11 @@ export default function SetDetailPage() {
   }
 
   if (error || !set) {
-    return <div className="alert alert-error">⚠️ Set not found.</div>;
+    return (
+      <div className="alert alert-error">
+        <AlertTriangle size={15} /> Set not found.
+      </div>
+    );
   }
 
   return (
@@ -116,8 +121,16 @@ export default function SetDetailPage() {
         <Link to="/sets">My Sets</Link> / {set.name}
       </p>
 
-      {actionError && <div className="alert alert-error">⚠️ {actionError}</div>}
-      {actionMessage && <div className="alert alert-success">✅ {actionMessage}</div>}
+      {actionError && (
+        <div className="alert alert-error">
+          <AlertTriangle size={15} /> {actionError}
+        </div>
+      )}
+      {actionMessage && (
+        <div className="alert alert-success">
+          <CheckCircle2 size={15} /> {actionMessage}
+        </div>
+      )}
 
       <div className="detail-grid">
         <div>
@@ -185,7 +198,7 @@ export default function SetDetailPage() {
           {set.label_url && (
             <div style={{ marginBottom: '1rem' }}>
               <a className="btn btn-outline btn-sm" href={set.label_url} target="_blank" rel="noreferrer">
-                🏷 Show label
+                <Tag size={14} /> Show label
               </a>
             </div>
           )}
@@ -193,16 +206,16 @@ export default function SetDetailPage() {
           {isAdmin && (
             <div className="row-actions">
               <button className="btn btn-outline btn-sm" onClick={() => setShowEditModal(true)}>
-                ✏️ Edit set
+                <Pencil size={14} /> Edit set
               </button>
               {set.setID > 0 && (
                 <button className="btn btn-outline btn-sm" onClick={refreshFromBrickset}>
-                  🔄 Refresh from Brickset
+                  <RefreshCw size={14} /> Refresh from Brickset
                 </button>
               )}
               {!showDeleteConfirm ? (
                 <button className="btn btn-danger-outline btn-sm" onClick={() => setShowDeleteConfirm(true)}>
-                  🗑 Delete set
+                  <Trash2 size={14} /> Delete set
                 </button>
               ) : (
                 <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -220,8 +233,8 @@ export default function SetDetailPage() {
 
           {!set.local_instructions?.length ? (
             <div className="alert alert-error" style={{ marginTop: '1.5rem' }}>
-              ⚠️ No instructions found for this set yet. Brickset may not have published them, or the download
-              may have failed.
+              <AlertTriangle size={15} /> No instructions found for this set yet. Brickset may not have
+              published them, or the download may have failed.
             </div>
           ) : (
             <div style={{ marginTop: '1.5rem' }}>
@@ -239,7 +252,7 @@ export default function SetDetailPage() {
 
         <div>
           <div className="set-thumb-wrap card">
-            {set.image ? <img src={set.image} alt={set.name} /> : <span style={{ fontSize: '3rem' }}>📦</span>}
+            {set.image ? <img src={set.image} alt={set.name} /> : <Package size={48} strokeWidth={1.5} className="text-muted" />}
           </div>
         </div>
       </div>
@@ -318,12 +331,18 @@ function EditSetModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>✏️ Edit set</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Pencil size={18} /> Edit set
+          </h3>
           <button className="modal-close" onClick={onClose}>
-            ✕
+            <X size={18} />
           </button>
         </div>
-        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {error && (
+          <div className="alert alert-error">
+            <AlertTriangle size={15} /> {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="field">
             <label>Name *</label>

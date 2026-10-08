@@ -1,5 +1,7 @@
+import { Heart, MapPin } from 'lucide-react';
 import type { SetsFilters } from '../hooks/useInfiniteSets';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
+import { STATUS_ICONS } from '../statusIcons';
 
 interface Props {
   wishlistMode: boolean;
@@ -56,19 +58,22 @@ export default function FilterSidebar({ wishlistMode, themes, locations, filters
               >
                 All statuses
               </a>
-              {OWNED_BUILD_STATUSES.map((s) => (
-                <a
-                  key={s}
-                  href="#"
-                  className={filters.status === s ? 'active' : ''}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onChange({ status: s });
-                  }}
-                >
-                  {BUILD_STATUS_META[s].emoji} {BUILD_STATUS_META[s].label}
-                </a>
-              ))}
+              {OWNED_BUILD_STATUSES.map((s) => {
+                const Icon = STATUS_ICONS[s];
+                return (
+                  <a
+                    key={s}
+                    href="#"
+                    className={filters.status === s ? 'active' : ''}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onChange({ status: s });
+                    }}
+                  >
+                    <Icon size={14} /> {BUILD_STATUS_META[s].label}
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -95,7 +100,7 @@ export default function FilterSidebar({ wishlistMode, themes, locations, filters
                     onChange({ location: l });
                   }}
                 >
-                  📍 {l}
+                  <MapPin size={14} /> {l}
                 </a>
               ))}
             </div>
@@ -108,7 +113,8 @@ export default function FilterSidebar({ wishlistMode, themes, locations, filters
         style={{ width: '100%', justifyContent: 'center' }}
         onClick={() => onChange({ favorite: !filters.favorite })}
       >
-        {filters.favorite ? '❤️ Showing favorites' : '🤍 Favorites'}
+        <Heart size={15} fill={filters.favorite ? 'currentColor' : 'none'} />{' '}
+        {filters.favorite ? 'Showing favorites' : 'Favorites'}
       </button>
     </div>
   );

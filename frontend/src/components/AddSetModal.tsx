@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Pencil, Plus, Search, X } from 'lucide-react';
 import { api, extractErrorMessage } from '../api/client';
 import { ALL_BUILD_STATUSES, BUILD_STATUS_META } from '../constants';
 import { useAuth } from '../context/AuthContext';
@@ -81,22 +82,28 @@ export default function AddSetModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>➕ Add a Set</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={18} /> Add a Set
+          </h3>
           <button className="modal-close" onClick={onClose}>
-            ✕
+            <X size={18} />
           </button>
         </div>
 
         <div className="method-toggle">
           <button className={method === 'auto' ? 'active' : ''} onClick={() => setMethod('auto')}>
-            🔍 Automatic — Brickset
+            <Search size={14} /> Automatic — Brickset
           </button>
           <button className={method === 'manual' ? 'active' : ''} onClick={() => setMethod('manual')}>
-            ✏️ Add Manually
+            <Pencil size={14} /> Add Manually
           </button>
         </div>
 
-        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {error && (
+          <div className="alert alert-error">
+            <AlertTriangle size={15} /> {error}
+          </div>
+        )}
 
         {method === 'auto' ? (
           <form onSubmit={submitAuto}>

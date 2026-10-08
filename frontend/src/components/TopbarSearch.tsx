@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Package } from 'lucide-react';
 import { api } from '../api/client';
 import type { SuggestResponse, SuggestResult } from '../types';
 
@@ -72,7 +73,9 @@ export default function TopbarSearch() {
               {r.image ? (
                 <img src={r.image} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain' }} />
               ) : (
-                <span style={{ width: '2.5rem', height: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📦</span>
+                <span style={{ width: '2.5rem', height: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={20} strokeWidth={1.5} className="text-muted" />
+                </span>
               )}
               <span>
                 <span style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem' }}>{r.name}</span>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { api } from '../api/client';
 import type { SearchResponse } from '../types';
 import SetCard from '../components/SetCard';
@@ -24,7 +25,9 @@ export default function SearchPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>🔍 Search results for "{query}"</h1>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Search size={20} /> Search results for "{query}"
+        </h1>
       </div>
 
       {isLoading && (
@@ -35,7 +38,9 @@ export default function SearchPage() {
 
       {!isLoading && sets.length === 0 && (
         <div className="empty-state">
-          <div className="empty-icon">🔍</div>
+          <div className="empty-icon">
+            <Search size={40} strokeWidth={1.5} />
+          </div>
           <p>No sets matched your search.</p>
         </div>
       )}
@@ -50,7 +55,7 @@ export default function SearchPage() {
           {data && data.total_pages > 1 && (
             <div className="toolbar" style={{ justifyContent: 'center', marginTop: '1.5rem' }}>
               <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                ← Previous
+                <ChevronLeft size={16} /> Previous
               </button>
               <span className="muted">
                 Page {data.page} of {data.total_pages}
@@ -60,7 +65,7 @@ export default function SearchPage() {
                 disabled={page >= data.total_pages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next →
+                Next <ChevronRight size={16} />
               </button>
             </div>
           )}
