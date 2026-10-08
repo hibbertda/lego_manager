@@ -10,3 +10,7 @@ sets
 data
 lego_sets.db
 combined_data.json
+# Built by the frontend-builder stage in Dockerfile; excluding it from the
+# build context guarantees the image always contains a freshly built SPA
+# rather than a possibly-stale local build dir.
+static/app

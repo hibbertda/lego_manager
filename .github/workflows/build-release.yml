@@ -74,6 +74,21 @@ jobs:
         run: ruff format --check .
       - name: Test
         run: pytest -q
+      # The Docker build has a frontend-builder stage that runs
+      # `npm ci && npm run build` (see Dockerfile) — validate that here too,
+      # so a broken SPA build/lint fails fast instead of only surfacing as a
+      # failed `docker build` in the build-and-release job below.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Validate frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
 
   build-and-release:
     needs: test
