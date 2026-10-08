@@ -216,18 +216,20 @@ p {
   background: var(--color-primary);
   color: white;
   padding: 0.6rem 1.25rem;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 28rem) 1fr;
   align-items: center;
   gap: 1rem;
 }
 
 .topbar .brand {
   color: white;
+  justify-self: start;
 }
 
 .topbar-search {
-  flex: 1;
-  max-width: 28rem;
+  justify-self: stretch;
+  width: 100%;
   position: relative;
 }
 
