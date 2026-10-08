@@ -3,9 +3,20 @@
 # it to the Gitea container registry.
 #
 # HOW TO RUN
-#   - Automatically: on every push to main.
+#   - Automatically: on every push to any branch (see "Image tagging"
+#     below for what tag you get).
 #   - On demand: Gitea UI -> repo -> Actions -> "Build lego-manager image"
 #     -> "Run workflow" (lets you override the tag).
+#
+# IMAGE TAGGING
+#   - Push to main: tagged "latest" (+ short commit SHA).
+#   - Push to any other branch: tagged with the branch name itself (+ short
+#     SHA) instead of "latest", e.g. pushing react-ui-rewrite publishes
+#     ...lego_manager:react-ui-rewrite. This lets you pull/test a feature
+#     branch's image (docker-compose.registry.yml or a one-off `docker run`)
+#     without touching the "latest" tag your production deploy tracks —
+#     only merging to main (or a manual dispatch) moves "latest".
+#   - Manual dispatch: tagged whatever you typed in, overriding the above.
 #
 # After it pushes, restart the deployment so it re-pulls the (mutable) tag:
 #   kubectl -n lego-manager rollout restart deploy/lego-manager
@@ -15,8 +26,8 @@ name: Build lego-manager image
 
 on:
   push:
-    branches:
-      - main
+    # No branch filter: every branch gets built and pushed under its own
+    # tag (see "IMAGE TAGGING" above) so you can test before merging.
     # Skip the image build entirely for changes that can't affect the
     # image contents (docs/wiki/license/editor config, and the sibling
     # GitHub-only workflow) — avoids a pointless rebuild on every doc tweak.
@@ -33,8 +44,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Image tag to push
-        default: latest
+        description: Image tag to push (leave blank to auto-select per branch)
+        required: false
 
 concurrency:
   group: build-lego-manager
@@ -114,16 +125,32 @@ jobs:
           echo "${{ secrets.DOCKERBUILD_SECRET }}" \
             | docker login gitea.thehibbs.net -u "${{ github.repository_owner }}" --password-stdin
 
+      # main -> "latest" (what production tracks); any other branch -> the
+      # branch name itself, so a feature branch never overwrites "latest".
+      # A manual dispatch tag always wins when provided.
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          elif [ "${GITHUB_REF_NAME}" = "main" ]; then
+            TAG="latest"
+          else
+            # Sanitize the branch name into a valid Docker tag.
+            TAG=$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_.-]/-/g')
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Build image
         run: |
           docker build \
-            -t "${IMAGE}:${{ inputs.tag || 'latest' }}" \
+            -t "${IMAGE}:${{ steps.tag.outputs.tag }}" \
             -t "${IMAGE}:${GITHUB_SHA::7}" \
             .
 
       - name: Push image
         run: |
-          docker push "${IMAGE}:${{ inputs.tag || 'latest' }}"
+          docker push "${IMAGE}:${{ steps.tag.outputs.tag }}"
           docker push "${IMAGE}:${GITHUB_SHA::7}"
 
       - name: Logout

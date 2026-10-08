@@ -6,9 +6,22 @@
 # own GitHub Actions and ghcr.io, and never touches the Gitea instance.
 #
 # HOW TO RUN
-#   - Automatically: on every push to main.
+#   - Automatically: on every push to any branch (see "IMAGE TAGGING" below
+#     for what you get), and on pull requests (test job only — see below).
 #   - On demand: Actions -> "Build and release container" -> "Run workflow"
 #     (lets you override the release tag).
+#
+# IMAGE TAGGING
+#   - Push to main: tagged "latest" + an auto-generated version (a GitHub
+#     Release is also cut for that version).
+#   - Push to any other branch: tagged with the branch name itself instead,
+#     e.g. pushing react-ui-rewrite publishes ghcr.io/.../lego_manager
+#     :react-ui-rewrite. No release is created and "latest" is untouched —
+#     this lets you pull/test a feature branch's image before merging.
+#   - Pull requests only run the test job (lint/tests/frontend build) —
+#     they never build or push an image, since a PR from the same repo
+#     already gets an image from its underlying branch push above.
+#   - Manual dispatch: tagged (and released) under whatever you typed in.
 #
 # VERSIONING
 #   No formal semver process exists for this project yet, so releases are
@@ -26,8 +39,8 @@ name: Build and release container
 on:
   pull_request:
   push:
-    branches:
-      - main
+    # No branch filter: every branch gets built and pushed under its own
+    # tag (see "IMAGE TAGGING" above) so you can test before merging.
     # Skip the build+release entirely for changes that can't affect the
     # image contents (docs/wiki/license/editor config, and the sibling
     # Gitea-only workflow) — avoids a pointless rebuild+release on every
@@ -44,7 +57,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to use (e.g. v1.2.3). Leave blank to auto-generate.
+        description: Release tag to use (e.g. v1.2.3). Leave blank to auto-select per branch.
         required: false
 
 concurrency:
@@ -98,14 +111,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Determine release tag
+      - name: Determine image tags
         id: version
         run: |
+          # main (or a manual dispatch) -> "latest" + a version tag, and a
+          # GitHub Release is cut for that version. Any other branch -> the
+          # branch name itself only, no "latest", no release — just an
+          # image you can pull and test before merging.
           if [ -n "${{ inputs.tag }}" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            TAG="${{ inputs.tag }}"
+            TAGS="${IMAGE}:latest"$'\n'"${IMAGE}:${TAG}"
+            RELEASE=true
+          elif [ "${GITHUB_REF_NAME}" = "main" ]; then
+            TAG="v1.0.${{ github.run_number }}"
+            TAGS="${IMAGE}:latest"$'\n'"${IMAGE}:${TAG}"
+            RELEASE=true
           else
-            echo "tag=v1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            # Sanitize the branch name into a valid Docker tag.
+            SLUG=$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_.-]/-/g')
+            TAG=""
+            TAGS="${IMAGE}:${SLUG}"
+            RELEASE=false
           fi
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$TAGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -125,22 +157,21 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+          tags: ${{ steps.version.outputs.tags }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
+        if: steps.version.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          name: ${{ steps.version.outputs.release_tag }}
           generate_release_notes: true
           body: |
-            Container image: `${{ env.IMAGE }}:${{ steps.version.outputs.tag }}`
+            Container image: `${{ env.IMAGE }}:${{ steps.version.outputs.release_tag }}`
 
             ```bash
-            docker pull ${{ env.IMAGE }}:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.IMAGE }}:${{ steps.version.outputs.release_tag }}
             ```
