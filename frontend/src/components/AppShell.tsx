@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Blocks, LogOut, Package, Plus, Settings, Star, Wrench } from 'lucide-react';
+import { Blocks, LogOut, Moon, Package, Plus, Settings, Star, Sun, Wrench } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import TopbarSearch from './TopbarSearch';
 import AddSetModal from './AddSetModal';
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const { session, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [addSetOpen, setAddSetOpen] = useState(false);
@@ -41,6 +43,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <Settings size={15} /> Admin
                 </Link>
               )}
+              <button onClick={toggleTheme}>
+                {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </button>
               <button onClick={handleLogout}>
                 <LogOut size={15} /> Logout
               </button>

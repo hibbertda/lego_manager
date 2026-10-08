@@ -11,6 +11,12 @@
   --color-primary-soft: #fdeceb;
   --color-success: #1a9d63;
   --color-danger: #d6271c;
+  --color-success-bg: #e7f7ef;
+  --color-success-text: #0f6b43;
+  --color-warning-bg: #fff3cd;
+  --color-warning-text: #8a6400;
+  --color-info-bg: #e3f2fd;
+  --color-info-text: #0b5a94;
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -18,6 +24,30 @@
   --shadow-md: 0 6px 20px rgba(20, 20, 40, 0.08);
   --shadow-lg: 0 16px 40px rgba(20, 20, 40, 0.14);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #14151c;
+  --color-surface: #1c1e27;
+  --color-surface-muted: #262835;
+  --color-border: #383b4a;
+  --color-text: #e8e9f0;
+  --color-muted: #9398ad;
+  --color-primary: #ff5c4d;
+  --color-primary-dark: #ff9387;
+  --color-primary-soft: #3a211f;
+  --color-success: #3ddc92;
+  --color-danger: #ff5c4d;
+  --color-success-bg: #103524;
+  --color-success-text: #4ade80;
+  --color-warning-bg: #3a2f0a;
+  --color-warning-text: #f5c451;
+  --color-info-bg: #122c3f;
+  --color-info-text: #7cc1f0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -214,7 +244,7 @@ p {
   left: 0;
   right: 0;
   top: calc(100% + 0.3rem);
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
@@ -267,7 +297,7 @@ p {
   position: absolute;
   right: 0;
   top: calc(100% + 0.4rem);
-  background: white;
+  background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
@@ -448,8 +478,8 @@ textarea:focus {
 }
 
 .alert-success {
-  background: #e7f7ef;
-  color: #0f6b43;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .badge {
@@ -468,18 +498,18 @@ textarea:focus {
 }
 
 .badge-warning {
-  background: #fff3cd;
-  color: #8a6400;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .badge-info {
-  background: #e3f2fd;
-  color: #0b5a94;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .badge-success {
-  background: #e7f7ef;
-  color: #0f6b43;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .badge-primary {
