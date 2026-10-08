@@ -40,10 +40,23 @@ separate Node server is needed in production — Flask serves everything.
 - React Router (client-side routing)
 - TanStack Query (data fetching/caching, infinite scroll)
 - Axios (HTTP client, with a CSRF-token interceptor matching Flask-WTF)
+- pdfjs-dist (canvas-based instructions viewer, lazy-loaded as its own chunk
+  so the ~450KB PDF engine is only fetched when a set-detail page with
+  instructions is actually opened)
 - Hand-rolled CSS design system (`src/index.css`) — no UI framework
 
-## Notes / known scope reductions vs. the legacy Jinja UI
+## PDF instructions viewer
 
-- The PDF instructions viewer opens PDFs in the browser's native viewer via
-  plain links, rather than the legacy custom PDF.js canvas viewer with page
-  tracking (`static/js/pdf-viewer.js`).
+`src/components/PdfViewer.tsx` is a from-scratch React port of the legacy
+`static/js/pdf-viewer.js`, with full feature parity:
+
+- Canvas-based single-page rendering via `pdfjs-dist` (self-contained in the
+  SPA bundle — no reliance on Flask's `/static/js/pdfjs/*`).
+- Prev/next page buttons, a page-number input you can type/jump to, and
+  zoom in/out (0.5x–3x).
+- Multi-booklet switcher for sets with more than one instructions PDF;
+  switching booklets always resets to page 1 (matches the legacy behavior —
+  `build_page` tracks a single page for the whole set, not per booklet).
+- Debounced (800ms) auto-save of the current page back to
+  `POST /api/sets/<id>/progress/page`, with a transient "Progress saved"
+  status message, so "Build progress" reflects where the user left off.

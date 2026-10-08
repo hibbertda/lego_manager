@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
 import type { SetDetailResponse } from '../types';
+
+const PdfViewer = lazy(() => import('../components/PdfViewer'));
 
 export default function SetDetailPage() {
   const { setId } = useParams();
@@ -224,20 +226,13 @@ export default function SetDetailPage() {
           ) : (
             <div style={{ marginTop: '1.5rem' }}>
               <h3>Instructions</h3>
-              <div className="card" style={{ padding: '0.75rem' }}>
-                {(set.local_instruction_urls ?? []).map((url, i) => (
-                  <a
-                    key={url}
-                    className="btn btn-outline btn-sm"
-                    style={{ marginRight: '0.5rem', marginBottom: '0.5rem' }}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    📄 Book {i + 1}
-                  </a>
-                ))}
-              </div>
+              <Suspense fallback={<div className="card" style={{ padding: '1rem' }}><span className="spinner" /> Loading viewer…</div>}>
+                <PdfViewer
+                  urls={set.local_instruction_urls ?? []}
+                  setId={set.setID}
+                  initialPage={set.build_page ?? 0}
+                />
+              </Suspense>
             </div>
           )}
         </div>
