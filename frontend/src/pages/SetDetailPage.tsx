@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
@@ -50,6 +50,9 @@ export default function SetDetailPage() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const locationLoadedRef = useRef(false);
+  const lastSavedLocationRef = useRef<string | null>(null);
+  const locationSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const set = data?.set;
 
@@ -77,6 +80,8 @@ export default function SetDetailPage() {
     setBuildStatus(set.build_status);
     setBuildPage(String(set.build_page ?? 0));
     setLocation(set.location ?? '');
+    lastSavedLocationRef.current = set.location ?? '';
+    locationLoadedRef.current = true;
   }
 
   async function saveProgress(e: React.FormEvent) {
@@ -98,20 +103,31 @@ export default function SetDetailPage() {
     }
   }
 
-  async function saveLocation(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingLocation(true);
-    setActionError(null);
-    try {
-      await api.post(`/sets/${setId}/location`, { location });
-      queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
-      setActionMessage('Location updated.');
-    } catch (err) {
-      setActionError(extractErrorMessage(err, 'Failed to update location.'));
-    } finally {
-      setSavingLocation(false);
-    }
-  }
+  // Auto-saves the location a moment after the user stops typing, instead of
+  // requiring an explicit save button.
+  useEffect(() => {
+    if (!locationLoadedRef.current) return;
+    if (location === lastSavedLocationRef.current) return;
+    if (locationSaveTimerRef.current) clearTimeout(locationSaveTimerRef.current);
+    locationSaveTimerRef.current = setTimeout(async () => {
+      setSavingLocation(true);
+      setActionError(null);
+      try {
+        await api.post(`/sets/${setId}/location`, { location });
+        lastSavedLocationRef.current = location;
+        queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
+      } catch (err) {
+        setActionError(extractErrorMessage(err, 'Failed to update location.'));
+      } finally {
+        setSavingLocation(false);
+      }
+    }, 700);
+    return () => {
+      if (locationSaveTimerRef.current) clearTimeout(locationSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, setId]);
+
 
   async function refreshFromBrickset() {
     setActionError(null);
@@ -235,8 +251,11 @@ export default function SetDetailPage() {
           </p>
 
           <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-            <h3>Build progress</h3>
-            <form onSubmit={saveProgress} style={{ display: 'flex', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
+            <h3>Build progress &amp; location</h3>
+            <form
+              onSubmit={saveProgress}
+              style={{ display: 'flex', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap', marginBottom: '0.9rem' }}
+            >
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>Status</label>
                 <select value={buildStatus} onChange={(e) => setBuildStatus(e.target.value)}>
@@ -261,33 +280,25 @@ export default function SetDetailPage() {
                 {savingProgress ? <span className="spinner" /> : 'Save progress'}
               </button>
             </form>
-          </div>
 
-          <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-            <h3>Location</h3>
-            <p className="muted" style={{ fontSize: '0.82rem' }}>
-              Where this set is stored once it's complete.
-            </p>
-            <form onSubmit={saveLocation} style={{ display: 'flex', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
-              <div className="field" style={{ marginBottom: 0, flex: 1 }}>
-                <label>Location</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  list="location-options"
-                  placeholder="e.g. Shelf 3, Bin A"
-                />
-                <datalist id="location-options">
-                  {data.locations.map((l) => (
-                    <option key={l} value={l} />
-                  ))}
-                </datalist>
-              </div>
-              <button className="btn btn-primary" type="submit" disabled={savingLocation}>
-                {savingLocation ? <span className="spinner" /> : 'Save location'}
-              </button>
-            </form>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Location
+                {savingLocation && <span className="spinner" style={{ width: '0.8rem', height: '0.8rem' }} />}
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                list="location-options"
+                placeholder="e.g. Shelf 3, Bin A"
+              />
+              <datalist id="location-options">
+                {data.locations.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
+            </div>
           </div>
 
           {set.label_url && (
@@ -298,14 +309,17 @@ export default function SetDetailPage() {
             </div>
           )}
 
-          {!set.local_instructions?.length ? (
-            <div className="alert alert-error" style={{ marginTop: '1.5rem' }}>
-              <AlertTriangle size={15} /> No instructions found for this set yet. Brickset may not have
-              published them, or the download may have failed.
-            </div>
-          ) : (
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3>Instructions</h3>
+          <div style={{ marginTop: '1.5rem' }}>
+            <h3>Instructions</h3>
+            {!set.local_instructions?.length ? (
+              <div className="card pdf-viewer-card pdf-viewer-empty">
+                <AlertTriangle size={26} className="text-muted" />
+                <p>No instructions found for this set yet.</p>
+                <p className="muted" style={{ fontSize: '0.8rem' }}>
+                  Brickset may not have published them, or the download may have failed.
+                </p>
+              </div>
+            ) : (
               <Suspense fallback={<div className="card" style={{ padding: '1rem' }}><span className="spinner" /> Loading viewer…</div>}>
                 <PdfViewer
                   urls={set.local_instruction_urls ?? []}
@@ -313,8 +327,9 @@ export default function SetDetailPage() {
                   initialPage={set.build_page ?? 0}
                 />
               </Suspense>
-            </div>
-          )}
+            )}
+          </div>
+
         </div>
 
         <div>
