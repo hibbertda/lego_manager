@@ -10,3 +10,8 @@ __pycache__/
 data/
 sets/
 node_modules/
+
+# React SPA (frontend/) build output — generated via `npm run build`,
+# served by app/blueprints/spa.py. Not committed; rebuild as part of deploy.
+static/app/
+frontend/dist/

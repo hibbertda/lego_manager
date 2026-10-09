@@ -1,3 +1,18 @@
+FROM node:22-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Install deps first so this (slow) layer is cached across backend-only
+# changes — only re-runs when package.json/package-lock.json change.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+# Build straight into the image's static/app (see frontend/vite.config.ts's
+# outDir: '../static/app'), which resolves to /static/app here since WORKDIR
+# is /frontend.
+COPY frontend/ ./
+RUN npm run build
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -6,6 +21,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# The React SPA (frontend/) builds to static/app/, which is gitignored and
+# not part of the build context (see .dockerignore) — pull the fresh build
+# from the frontend-builder stage instead, served by app/blueprints/spa.py
+# under /app/*. The legacy Jinja UI/static assets are untouched.
+COPY --from=frontend-builder /static/app ./static/app
 
 # gosu lets the entrypoint drop from root to appuser after fixing ownership
 # of bind-mounted paths (see docker-entrypoint.sh) — more reliable for a
