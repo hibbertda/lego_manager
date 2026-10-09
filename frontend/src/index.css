@@ -633,6 +633,45 @@ textarea:focus {
   object-fit: contain;
 }
 
+.set-thumb-wrap-lg {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+}
+
+.photo-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.1rem;
+  height: 2.1rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.photo-nav:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.photo-nav-prev {
+  left: 0.5rem;
+}
+
+.photo-nav-next {
+  right: 0.5rem;
+}
+
+.build-photo-thumb.is-active {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
 .build-photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -940,7 +979,7 @@ table.data-table th {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 420px;
   gap: 1.5rem;
   align-items: start;
 }

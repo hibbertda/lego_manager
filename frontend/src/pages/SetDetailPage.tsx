@@ -3,7 +3,20 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { AlertTriangle, Camera, CheckCircle2, Package, Pencil, RefreshCw, Tag, Trash2, Upload, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  Pencil,
+  RefreshCw,
+  Tag,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
 import type { SetDetailResponse } from '../types';
 
@@ -34,11 +47,30 @@ export default function SetDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const set = data?.set;
+
+  const galleryItems: { url: string; buildIndex: number }[] = set
+    ? [
+        ...(set.image ? [{ url: set.image, buildIndex: -1 }] : []),
+        ...(set.build_photo_urls ?? []).map((url, i) => ({ url, buildIndex: i })),
+      ]
+    : [];
+  const activePhotoIndex = Math.min(selectedPhotoIndex, Math.max(galleryItems.length - 1, 0));
+  const activePhoto = galleryItems[activePhotoIndex];
+
+  function showPrevPhoto() {
+    if (!galleryItems.length) return;
+    setSelectedPhotoIndex((activePhotoIndex - 1 + galleryItems.length) % galleryItems.length);
+  }
+
+  function showNextPhoto() {
+    if (!galleryItems.length) return;
+    setSelectedPhotoIndex((activePhotoIndex + 1) % galleryItems.length);
+  }
 
   // Sync local form state once the set loads (only on first load / id change).
   if (set && buildStatus === '' && buildPage === '') {
@@ -127,7 +159,7 @@ export default function SetDetailPage() {
     try {
       await api.delete(`/sets/${setId}/photos`, { data: { path } });
       queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
-      setLightboxUrl(null);
+      setSelectedPhotoIndex(0);
     } catch (err) {
       setActionError(extractErrorMessage(err, 'Failed to delete photo.'));
     }
@@ -168,7 +200,36 @@ export default function SetDetailPage() {
 
       <div className="detail-grid">
         <div>
-          <h1>{set.name}</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0 }}>{set.name}</h1>
+            {isAdmin && (
+              <div className="row-actions" style={{ flexShrink: 0 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowEditModal(true)}>
+                  <Pencil size={14} /> Edit set
+                </button>
+                {set.setID > 0 && (
+                  <button className="btn btn-outline btn-sm" onClick={refreshFromBrickset}>
+                    <RefreshCw size={14} /> Refresh from Brickset
+                  </button>
+                )}
+                {!showDeleteConfirm ? (
+                  <button className="btn btn-danger-outline btn-sm" onClick={() => setShowDeleteConfirm(true)}>
+                    <Trash2 size={14} /> Delete set
+                  </button>
+                ) : (
+                  <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.82rem' }}>Delete this set?</span>
+                    <button className="btn btn-sm" onClick={() => setShowDeleteConfirm(false)}>
+                      Cancel
+                    </button>
+                    <button className="btn btn-primary btn-sm" style={{ background: 'var(--color-danger)' }} onClick={deleteSet}>
+                      Confirm delete
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           <p className="muted">
             Set #{set.setNumber} · {set.year ?? '—'} · {set.theme ?? '—'} · {set.pieces ?? '—'} pcs
           </p>
@@ -207,7 +268,7 @@ export default function SetDetailPage() {
             <p className="muted" style={{ fontSize: '0.82rem' }}>
               Where this set is stored once it's complete.
             </p>
-            <form onSubmit={saveLocation} style={{ display: 'flex', gap: '0.75rem', alignItems: 'end' }}>
+            <form onSubmit={saveLocation} style={{ display: 'flex', gap: '0.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
               <div className="field" style={{ marginBottom: 0, flex: 1 }}>
                 <label>Location</label>
                 <input
@@ -229,33 +290,84 @@ export default function SetDetailPage() {
             </form>
           </div>
 
-          <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-            <h3>Build Photos</h3>
-            <p className="muted" style={{ fontSize: '0.82rem' }}>
-              Snap or upload photos of your completed build.
-            </p>
-            {!!set.build_photo_urls?.length && (
-              <div className="build-photo-grid">
-                {set.build_photo_urls.map((url, i) => (
-                  <div key={url} className="build-photo-thumb">
-                    <img
-                      src={url}
-                      alt={`Build photo ${i + 1}`}
-                      onClick={() => setLightboxUrl(url)}
-                    />
+          {set.label_url && (
+            <div style={{ marginBottom: '1rem' }}>
+              <a className="btn btn-outline btn-sm" href={set.label_url} target="_blank" rel="noreferrer">
+                <Tag size={14} /> Show label
+              </a>
+            </div>
+          )}
+
+          {!set.local_instructions?.length ? (
+            <div className="alert alert-error" style={{ marginTop: '1.5rem' }}>
+              <AlertTriangle size={15} /> No instructions found for this set yet. Brickset may not have
+              published them, or the download may have failed.
+            </div>
+          ) : (
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3>Instructions</h3>
+              <Suspense fallback={<div className="card" style={{ padding: '1rem' }}><span className="spinner" /> Loading viewer…</div>}>
+                <PdfViewer
+                  urls={set.local_instruction_urls ?? []}
+                  setId={set.setID}
+                  initialPage={set.build_page ?? 0}
+                />
+              </Suspense>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="set-thumb-wrap set-thumb-wrap-lg card">
+            {activePhoto ? (
+              <img src={activePhoto.url} alt={set.name} />
+            ) : (
+              <Package size={48} strokeWidth={1.5} className="text-muted" />
+            )}
+            {galleryItems.length > 1 && (
+              <>
+                <button type="button" className="photo-nav photo-nav-prev" aria-label="Previous photo" onClick={showPrevPhoto}>
+                  <ChevronLeft size={20} />
+                </button>
+                <button type="button" className="photo-nav photo-nav-next" aria-label="Next photo" onClick={showNextPhoto}>
+                  <ChevronRight size={20} />
+                </button>
+              </>
+            )}
+          </div>
+
+          {galleryItems.length > 1 && (
+            <div className="build-photo-grid" style={{ marginTop: '0.6rem' }}>
+              {galleryItems.map((item, i) => (
+                <div
+                  key={item.url}
+                  className={`build-photo-thumb${i === activePhotoIndex ? ' is-active' : ''}`}
+                  onClick={() => setSelectedPhotoIndex(i)}
+                >
+                  <img src={item.url} alt={item.buildIndex === -1 ? set.name : `Build photo ${item.buildIndex + 1}`} />
+                  {item.buildIndex >= 0 && (
                     <button
                       type="button"
                       className="build-photo-remove"
                       aria-label="Delete photo"
-                      onClick={() => deletePhoto(set.build_photos?.[i] ?? '')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePhoto(set.build_photos?.[item.buildIndex] ?? '');
+                      }}
                     >
                       <X size={12} />
                     </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="row-actions" style={{ marginTop: '0.75rem' }}>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="card" style={{ padding: '1rem', marginTop: '0.75rem' }}>
+            <p className="muted" style={{ fontSize: '0.82rem', marginTop: 0 }}>
+              Snap or upload photos of your completed build.
+            </p>
+            <div className="row-actions">
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
@@ -290,66 +402,6 @@ export default function SetDetailPage() {
               onChange={(e) => uploadPhotos(e.target.files)}
             />
           </div>
-
-          {set.label_url && (
-            <div style={{ marginBottom: '1rem' }}>
-              <a className="btn btn-outline btn-sm" href={set.label_url} target="_blank" rel="noreferrer">
-                <Tag size={14} /> Show label
-              </a>
-            </div>
-          )}
-
-          {isAdmin && (
-            <div className="row-actions">
-              <button className="btn btn-outline btn-sm" onClick={() => setShowEditModal(true)}>
-                <Pencil size={14} /> Edit set
-              </button>
-              {set.setID > 0 && (
-                <button className="btn btn-outline btn-sm" onClick={refreshFromBrickset}>
-                  <RefreshCw size={14} /> Refresh from Brickset
-                </button>
-              )}
-              {!showDeleteConfirm ? (
-                <button className="btn btn-danger-outline btn-sm" onClick={() => setShowDeleteConfirm(true)}>
-                  <Trash2 size={14} /> Delete set
-                </button>
-              ) : (
-                <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.82rem' }}>Delete this set?</span>
-                  <button className="btn btn-sm" onClick={() => setShowDeleteConfirm(false)}>
-                    Cancel
-                  </button>
-                  <button className="btn btn-primary btn-sm" style={{ background: 'var(--color-danger)' }} onClick={deleteSet}>
-                    Confirm delete
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
-
-          {!set.local_instructions?.length ? (
-            <div className="alert alert-error" style={{ marginTop: '1.5rem' }}>
-              <AlertTriangle size={15} /> No instructions found for this set yet. Brickset may not have
-              published them, or the download may have failed.
-            </div>
-          ) : (
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3>Instructions</h3>
-              <Suspense fallback={<div className="card" style={{ padding: '1rem' }}><span className="spinner" /> Loading viewer…</div>}>
-                <PdfViewer
-                  urls={set.local_instruction_urls ?? []}
-                  setId={set.setID}
-                  initialPage={set.build_page ?? 0}
-                />
-              </Suspense>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <div className="set-thumb-wrap card">
-            {set.image ? <img src={set.image} alt={set.name} /> : <Package size={48} strokeWidth={1.5} className="text-muted" />}
-          </div>
         </div>
       </div>
 
@@ -367,17 +419,6 @@ export default function SetDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
           }}
         />
-      )}
-
-      {lightboxUrl && (
-        <div className="modal-backdrop" onClick={() => setLightboxUrl(null)}>
-          <div className="modal-box" style={{ maxWidth: '90vw', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-            <button className="btn btn-outline btn-sm" style={{ marginBottom: '0.75rem' }} onClick={() => setLightboxUrl(null)}>
-              <X size={14} /> Close
-            </button>
-            <img src={lightboxUrl} alt="Build photo" style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 'var(--radius, 8px)' }} />
-          </div>
-        </div>
       )}
     </div>
   );
