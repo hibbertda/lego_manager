@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 // Vite bundles the worker as its own asset and gives us a served URL for it;
 // self-contained within the SPA bundle (mirrors the legacy self-hosted
@@ -49,6 +49,8 @@ export default function PdfViewer({ urls, setId, initialPage }: PdfViewerProps) 
   const [pageInputValue, setPageInputValue] = useState('1');
   const [scale, setScale] = useState(DEFAULT_SCALE);
   const [status, setStatus] = useState('Loading…');
+  const [expanded, setExpanded] = useState(false);
+  const preExpandScaleRef = useRef<number | null>(null);
 
   const saveProgress = useMemo(
     () =>
@@ -139,6 +141,22 @@ export default function PdfViewer({ urls, setId, initialPage }: PdfViewerProps) 
     if (doc) renderPage(currentPage, doc, nextScale);
   }
 
+  function toggleExpanded() {
+    const doc = pdfDocRef.current;
+    const willExpand = !expanded;
+    setExpanded(willExpand);
+    if (willExpand) {
+      preExpandScaleRef.current = scale;
+      const biggerScale = Math.min(scale * 1.5, MAX_SCALE);
+      setScale(biggerScale);
+      if (doc) renderPage(currentPage, doc, biggerScale);
+    } else {
+      const restoredScale = preExpandScaleRef.current ?? DEFAULT_SCALE;
+      setScale(restoredScale);
+      if (doc) renderPage(currentPage, doc, restoredScale);
+    }
+  }
+
   function handlePageInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setPageInputValue(e.target.value);
   }
@@ -150,83 +168,103 @@ export default function PdfViewer({ urls, setId, initialPage }: PdfViewerProps) 
   }
 
   return (
-    <div className="card pdf-viewer-card">
-      <div className="pdf-viewer-header">
-        <span>Instructions</span>
-        <span className="pdf-viewer-status text-muted">{status}</span>
-      </div>
-
-      {urls.length > 1 && (
-        <div className="pdf-viewer-switcher">
-          <span className="text-muted" style={{ fontSize: '0.82rem' }}>
-            This set has {urls.length} instruction booklets:
+    <>
+      {expanded && <div className="pdf-viewer-overlay-backdrop" />}
+      <div className={`card pdf-viewer-card${expanded ? ' pdf-viewer-card-expanded' : ''}`}>
+        <div className="pdf-viewer-header">
+          <span>Instructions</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span className="pdf-viewer-status text-muted">{status}</span>
+            {expanded ? (
+              <button type="button" className="modal-close" aria-label="Close" onClick={toggleExpanded}>
+                <X size={18} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                aria-label="Expand instructions viewer"
+                onClick={toggleExpanded}
+              >
+                <Maximize2 size={14} />
+              </button>
+            )}
           </span>
-          {urls.map((url, i) => (
-            <button
-              key={url}
-              type="button"
-              className={`btn btn-sm ${i === activeIndex ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setActiveIndex(i)}
-              disabled={i === activeIndex}
-            >
-              Book {i + 1}
-            </button>
-          ))}
         </div>
-      )}
 
-      <div className="pdf-viewer-toolbar">
-        <button
-          type="button"
-          className="btn btn-sm btn-outline"
-          aria-label="Previous page"
-          onClick={() => goToPage(currentPage - 1)}
-          disabled={currentPage <= 1}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <span className="pdf-viewer-page-controls">
-          <input
-            type="number"
-            min={1}
-            max={numPages || undefined}
-            className="pdf-viewer-page-input"
-            aria-label="Page number"
-            value={pageInputValue}
-            onChange={handlePageInputChange}
-            onBlur={handlePageInputCommit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handlePageInputCommit();
-              }
-            }}
-          />
-          <span className="pdf-viewer-page-indicator text-muted">
-            {numPages ? `Page ${currentPage} of ${numPages}` : ''}
+        {urls.length > 1 && (
+          <div className="pdf-viewer-switcher">
+            <span className="text-muted" style={{ fontSize: '0.82rem' }}>
+              This set has {urls.length} instruction booklets:
+            </span>
+            {urls.map((url, i) => (
+              <button
+                key={url}
+                type="button"
+                className={`btn btn-sm ${i === activeIndex ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setActiveIndex(i)}
+                disabled={i === activeIndex}
+              >
+                Book {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="pdf-viewer-toolbar">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            aria-label="Previous page"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage <= 1}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="pdf-viewer-page-controls">
+            <input
+              type="number"
+              min={1}
+              max={numPages || undefined}
+              className="pdf-viewer-page-input"
+              aria-label="Page number"
+              value={pageInputValue}
+              onChange={handlePageInputChange}
+              onBlur={handlePageInputCommit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handlePageInputCommit();
+                }
+              }}
+            />
+            <span className="pdf-viewer-page-indicator text-muted">
+              {numPages ? `Page ${currentPage} of ${numPages}` : ''}
+            </span>
           </span>
-        </span>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline"
-          aria-label="Next page"
-          onClick={() => goToPage(currentPage + 1)}
-          disabled={!numPages || currentPage >= numPages}
-        >
-          <ChevronRight size={16} />
-        </button>
-        <div className="pdf-viewer-divider" />
-        <button type="button" className="btn btn-sm btn-outline" aria-label="Zoom out" onClick={() => zoom(-SCALE_STEP)}>
-          <ZoomOut size={16} />
-        </button>
-        <button type="button" className="btn btn-sm btn-outline" aria-label="Zoom in" onClick={() => zoom(SCALE_STEP)}>
-          <ZoomIn size={16} />
-        </button>
-      </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            aria-label="Next page"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={!numPages || currentPage >= numPages}
+          >
+            <ChevronRight size={16} />
+          </button>
+          <div className="pdf-viewer-divider" />
+          <button type="button" className="btn btn-sm btn-outline" aria-label="Zoom out" onClick={() => zoom(-SCALE_STEP)}>
+            <ZoomOut size={16} />
+          </button>
+          <button type="button" className="btn btn-sm btn-outline" aria-label="Zoom in" onClick={() => zoom(SCALE_STEP)}>
+            <ZoomIn size={16} />
+          </button>
+        </div>
 
-      <div className="pdf-viewer-canvas-wrap">
-        <canvas ref={canvasRef} className="pdf-viewer-canvas" />
+        <div className="pdf-viewer-canvas-wrap">
+          <canvas ref={canvasRef} className="pdf-viewer-canvas" />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
+

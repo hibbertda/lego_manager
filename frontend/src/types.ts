@@ -51,6 +51,8 @@ export interface SetSummary {
   local_image_urls?: string[];
   local_instructions?: string[];
   local_instruction_urls?: string[];
+  build_photos?: string[];
+  build_photo_urls?: string[];
   label_url?: string | null;
   launchDate?: string | null;
 }
