@@ -52,7 +52,12 @@ def _install_api_auth_gate(setup_state):
         def _api_aware_require_login(*args, __func=func, __app=app, **kwargs):
             endpoint = request.endpoint or ""
             if endpoint.startswith("api."):
-                if endpoint in {"api.session", "api.setup", "api.login", "api.login_local"}:
+                if endpoint in {
+                    "api.session",
+                    "api.setup",
+                    "api.login",
+                    "api.login_local",
+                }:
                     return None
                 if not __app.auth_ops.has_any_users():
                     return _json_error("Initial setup is required.", 403)

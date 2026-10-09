@@ -212,7 +212,8 @@ def test_update_progress_persists(app, admin_client):
 
 def test_update_progress_404_for_missing_set(admin_client):
     response = admin_client.post(
-        "/api/sets/999/progress", data={"build_page": "1", "build_status": "in_progress"}
+        "/api/sets/999/progress",
+        data={"build_page": "1", "build_status": "in_progress"},
     )
     assert response.status_code == 404
 
@@ -486,9 +487,7 @@ def test_update_location_persists(app, admin_client):
         }
     )
 
-    response = admin_client.post(
-        "/api/sets/705/location", data={"location": "Shelf 3"}
-    )
+    response = admin_client.post("/api/sets/705/location", data={"location": "Shelf 3"})
     assert response.status_code == 200
     assert app.db_ops.get_set_by_id(705)["location"] == "Shelf 3"
 
@@ -650,7 +649,12 @@ def test_edit_set_updates_metadata(app, admin_client):
 
     response = admin_client.post(
         "/api/sets/801/edit",
-        data={"name": "New Name", "year": "2024", "theme": "New Theme", "pieces": "500"},
+        data={
+            "name": "New Name",
+            "year": "2024",
+            "theme": "New Theme",
+            "pieces": "500",
+        },
     )
 
     assert response.status_code == 200
@@ -767,7 +771,10 @@ def test_refresh_set_manual_set_shows_error(app, admin_client):
     response = admin_client.post("/api/sets/-1/refresh")
 
     assert response.status_code == 400
-    assert b"isn&#39;t linked to Brickset" in response.data or b"isn't linked to Brickset" in response.data
+    assert (
+        b"isn&#39;t linked to Brickset" in response.data
+        or b"isn't linked to Brickset" in response.data
+    )
 
 
 def test_refresh_set_404_for_missing_set(admin_client):

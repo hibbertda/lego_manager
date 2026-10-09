@@ -47,7 +47,9 @@ def regular_user(app):
 def admin_client(app, admin_user):
     """A test client already logged in as an admin user."""
     test_client = app.test_client()
-    test_client.post("/api/login", json={"username": "admin", "password": "adminpass123"})
+    test_client.post(
+        "/api/login", json={"username": "admin", "password": "adminpass123"}
+    )
     return test_client
 
 

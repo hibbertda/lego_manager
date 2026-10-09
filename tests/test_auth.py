@@ -283,7 +283,9 @@ def test_oidc_callback_mismatching_state_redirects_to_login_with_error(app, clie
 
 
 def test_oidc_callback_username_conflict_redirects_with_error(app, client):
-    app.auth_ops.create_local_user(username="daniel", password="danielpass1", role="admin")
+    app.auth_ops.create_local_user(
+        username="daniel", password="danielpass1", role="admin"
+    )
     app.auth_ops.save_oidc_provider(
         name="Authentik",
         issuer="https://auth.example.com/application/o/lego/",
