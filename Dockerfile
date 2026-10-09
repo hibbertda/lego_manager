@@ -1,4 +1,12 @@
-FROM node:22-alpine AS frontend-builder
+# --platform=$BUILDPLATFORM pins this stage to the architecture doing the
+# build (not the target image architecture from `--platform` in buildx/CI).
+# The output here is just static JS/CSS/HTML — architecture-independent —
+# so there is no reason to run the Node toolchain under QEMU emulation for
+# non-native target platforms (e.g. building arm64 images on an amd64
+# runner). Without this, `npm ci`/`npm run build` run emulated and can take
+# hours instead of minutes; the final runtime stage below still builds
+# per-target-platform as normal since that's the image that actually ships.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 
 WORKDIR /frontend
 
