@@ -9,13 +9,15 @@ import re
 from typing import Any, Optional
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+
+from app.http_utils import (
+    DEFAULT_MAX_DOWNLOAD_BYTES,
+    REQUEST_TIMEOUT,
+    build_session,
+    download_file,
+)
 
 logger = logging.getLogger(__name__)
-
-REQUEST_TIMEOUT = 10  # seconds
-DEFAULT_MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
 
 # LEGO instruction descriptions look like "BI 3106, 148+4, 75350 V29" where the
 # trailing "V<n>" is a revision number. Brickset lists every historical
@@ -52,25 +54,10 @@ def _dedupe_instructions(instructions: list[dict[str, Any]]) -> list[str]:
     return [url for _, _, url in best_by_booklet.values()]
 
 
-def _build_session() -> requests.Session:
-    """A requests.Session with retry/backoff for transient network errors."""
-    session = requests.Session()
-    retry = Retry(
-        total=3,
-        backoff_factor=0.5,
-        status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=("GET",),
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
-
-
 class BricksetAPI:
     def __init__(self, api_key: Optional[str]):
         self.api_key = api_key or ""
-        self.session = _build_session()
+        self.session = build_session()
         self._userhash_cache: dict[bytes, str] = {}
         self._cache_salt = os.urandom(16)
 
@@ -148,28 +135,7 @@ class BricksetAPI:
         return response.json()
 
     def _download_file(self, url: str, path: str, max_bytes: int) -> bool:
-        try:
-            response = self.session.get(url, timeout=REQUEST_TIMEOUT, stream=True)
-            response.raise_for_status()
-            content_length = response.headers.get("Content-Length")
-            if content_length and int(content_length) > max_bytes:
-                logger.warning("Download exceeds size limit: %s", url)
-                return False
-            total = 0
-            with open(path, "wb") as file:
-                for chunk in response.iter_content(chunk_size=64 * 1024):
-                    total += len(chunk)
-                    if total > max_bytes:
-                        raise ValueError("download exceeds size limit")
-                    file.write(chunk)
-            return True
-        except (requests.RequestException, OSError, ValueError):
-            logger.exception("Failed to download: %s", url)
-            try:
-                os.remove(path)
-            except FileNotFoundError:
-                pass
-            return False
+        return download_file(self.session, url, path, max_bytes)
 
     def download_images(
         self,

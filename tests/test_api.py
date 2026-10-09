@@ -837,6 +837,147 @@ def test_refresh_set_failure_shows_error(app, admin_client, monkeypatch):
     assert b"Failed to refresh from Brickset" in response.data
 
 
+def test_get_set_parts_returns_empty_when_not_synced(app, user_client):
+    app.db_ops.insert_set_data(
+        {"setID": 850, "number": "80050", "name": "Set", "local_images": []}
+    )
+
+    response = user_client.get("/api/sets/850/parts")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["parts"] == []
+    assert body["minifigs"] == []
+    assert body["synced"] is False
+
+
+def test_sync_set_parts_requires_admin(app, user_client):
+    app.db_ops.insert_set_data(
+        {"setID": 851, "number": "80051", "name": "Set", "local_images": []}
+    )
+
+    response = user_client.post("/api/sets/851/parts/sync")
+
+    assert response.status_code == 403
+
+
+def test_sync_set_parts_requires_rebrickable_configured(app, admin_client):
+    app.db_ops.insert_set_data(
+        {"setID": 852, "number": "80052", "name": "Set", "local_images": []}
+    )
+    app.rebrickable_api.configure("")
+
+    response = admin_client.post("/api/sets/852/parts/sync")
+
+    assert response.status_code == 400
+    assert b"Rebrickable isn't configured" in response.data
+
+
+def test_sync_set_parts_success_stores_and_returns_parts_and_minifigs(
+    app, admin_client, monkeypatch
+):
+    app.db_ops.insert_set_data(
+        {"setID": 853, "number": "80053", "name": "Set", "local_images": []}
+    )
+    app.rebrickable_api.configure("test-key")
+
+    def fake_get_combined_set_parts(set_number, base_dir=None, max_bytes=None):
+        return [
+            {
+                "part_num": "3001",
+                "name": "Brick 2 x 4",
+                "color_id": 5,
+                "color_name": "Red",
+                "quantity": 4,
+                "image_path": None,
+            }
+        ]
+
+    def fake_get_combined_set_minifigs(set_number, base_dir=None, max_bytes=None):
+        return [
+            {
+                "fig_num": "fig-001",
+                "name": "Luke Skywalker",
+                "quantity": 1,
+                "image_path": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        app.rebrickable_api, "get_combined_set_parts", fake_get_combined_set_parts
+    )
+    monkeypatch.setattr(
+        app.rebrickable_api,
+        "get_combined_set_minifigs",
+        fake_get_combined_set_minifigs,
+    )
+
+    response = admin_client.post("/api/sets/853/parts/sync")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["synced"] is True
+    assert body["parts"] == [
+        {
+            "part_num": "3001",
+            "name": "Brick 2 x 4",
+            "color_name": "Red",
+            "quantity": 4,
+            "image_url": None,
+        }
+    ]
+    assert body["minifigs"] == [
+        {
+            "fig_num": "fig-001",
+            "name": "Luke Skywalker",
+            "quantity": 1,
+            "image_url": None,
+        }
+    ]
+
+    follow_up = admin_client.get("/api/sets/853/parts")
+    follow_up_body = follow_up.get_json()
+    assert follow_up_body["synced"] is True
+    assert follow_up_body["minifigs"] == body["minifigs"]
+
+
+def test_sync_set_parts_failure_shows_error(app, admin_client, monkeypatch):
+    app.db_ops.insert_set_data(
+        {"setID": 854, "number": "80054", "name": "Set", "local_images": []}
+    )
+    app.rebrickable_api.configure("test-key")
+    monkeypatch.setattr(
+        app.rebrickable_api, "get_combined_set_parts", lambda *a, **k: None
+    )
+
+    response = admin_client.post("/api/sets/854/parts/sync")
+
+    assert response.status_code == 422
+    assert b"Failed to fetch parts from Rebrickable" in response.data
+
+
+def test_sync_set_parts_succeeds_even_if_minifig_fetch_fails(
+    app, admin_client, monkeypatch
+):
+    app.db_ops.insert_set_data(
+        {"setID": 855, "number": "80055", "name": "Set", "local_images": []}
+    )
+    app.rebrickable_api.configure("test-key")
+    monkeypatch.setattr(
+        app.rebrickable_api, "get_combined_set_parts", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        app.rebrickable_api, "get_combined_set_minifigs", lambda *a, **k: None
+    )
+
+    response = admin_client.post("/api/sets/855/parts/sync")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["synced"] is True
+    assert body["minifigs"] == []
+
+
 def test_run_missing_metadata_task_lists_incomplete_sets(app, admin_client):
     app.db_ops.insert_set_data(
         {

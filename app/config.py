@@ -54,6 +54,12 @@ class Config:
         self.BRICKSET_USERNAME = os.getenv("BRICKSET_USERNAME")
         self.BRICKSET_PASSWORD = os.getenv("BRICKSET_PASSWORD")
 
+        # Rebrickable is used only for per-set part inventories (part
+        # number/image/quantity) — Brickset's API has no equivalent endpoint.
+        # Like BRICKSET_API_KEY, this is an initial-bootstrap fallback; the
+        # admin UI's saved value (if any) takes precedence at runtime.
+        self.REBRICKABLE_API_KEY = os.getenv("REBRICKABLE_API_KEY")
+
         # Optional: public base URL (e.g. "https://lego.example.com") used to
         # build the absolute set-detail link encoded in each storage-box
         # label's QR code. Labels can't be generated without knowing this,

@@ -200,6 +200,36 @@ class DatabaseOps:
                     password TEXT
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS rebrickable_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    api_key TEXT
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS set_parts (
+                    setID INTEGER NOT NULL,
+                    part_num TEXT NOT NULL,
+                    color_id INTEGER NOT NULL DEFAULT 0,
+                    name TEXT,
+                    color_name TEXT,
+                    quantity INTEGER NOT NULL DEFAULT 0,
+                    image_path TEXT,
+                    PRIMARY KEY (setID, part_num, color_id),
+                    FOREIGN KEY (setID) REFERENCES sets(setID) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS set_minifigs (
+                    setID INTEGER NOT NULL,
+                    fig_num TEXT NOT NULL,
+                    name TEXT,
+                    quantity INTEGER NOT NULL DEFAULT 0,
+                    image_path TEXT,
+                    PRIMARY KEY (setID, fig_num),
+                    FOREIGN KEY (setID) REFERENCES sets(setID) ON DELETE CASCADE
+                )
+            """)
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS manual_set_ids "
                 "(id INTEGER PRIMARY KEY AUTOINCREMENT)"
@@ -236,6 +266,128 @@ class DatabaseOps:
                     api_key=excluded.api_key, username=excluded.username, password=excluded.password
                 """,
                 (api_key, username, password),
+            )
+
+    # -- Rebrickable API settings ------------------------------------------
+
+    def get_rebrickable_settings(self) -> Optional[dict[str, Any]]:
+        with self.create_connection() as conn:
+            row = conn.execute(
+                "SELECT api_key FROM rebrickable_settings WHERE id = 1"
+            ).fetchone()
+        if not row:
+            return None
+        return {"api_key": row[0]}
+
+    def save_rebrickable_settings(self, api_key: str) -> None:
+        with self.create_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO rebrickable_settings (id, api_key)
+                VALUES (1, ?)
+                ON CONFLICT(id) DO UPDATE SET api_key=excluded.api_key
+                """,
+                (api_key,),
+            )
+
+    # -- Set parts (Rebrickable) --------------------------------------------
+
+    def get_set_parts(self, set_id: int) -> list[dict[str, Any]]:
+        with self.create_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT part_num, color_id, name, color_name, quantity, image_path
+                FROM set_parts WHERE setID = ?
+                ORDER BY name COLLATE NOCASE, part_num
+                """,
+                (set_id,),
+            ).fetchall()
+        return [
+            {
+                "part_num": r[0],
+                "color_id": r[1],
+                "name": r[2],
+                "color_name": r[3],
+                "quantity": r[4],
+                "image_path": r[5],
+            }
+            for r in rows
+        ]
+
+    def replace_set_parts(self, set_id: int, parts: list[dict[str, Any]]) -> None:
+        """Replace the cached parts list for a set wholesale — simplest way to
+        keep it in sync with whatever Rebrickable returns on each (re)sync,
+        without having to diff additions/removals/quantity changes."""
+        with self.create_connection() as conn:
+            conn.execute("DELETE FROM set_parts WHERE setID = ?", (set_id,))
+            conn.executemany(
+                """
+                INSERT INTO set_parts
+                    (setID, part_num, color_id, name, color_name, quantity, image_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        set_id,
+                        p["part_num"],
+                        p.get("color_id") or 0,
+                        p.get("name"),
+                        p.get("color_name"),
+                        p.get("quantity") or 0,
+                        p.get("image_path"),
+                    )
+                    for p in parts
+                ],
+            )
+
+    def has_set_parts(self, set_id: int) -> bool:
+        with self.create_connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM set_parts WHERE setID = ? LIMIT 1", (set_id,)
+            ).fetchone()
+        return row is not None
+
+    # -- Set minifigs (Rebrickable) ------------------------------------------
+
+    def get_set_minifigs(self, set_id: int) -> list[dict[str, Any]]:
+        with self.create_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT fig_num, name, quantity, image_path
+                FROM set_minifigs WHERE setID = ?
+                ORDER BY name COLLATE NOCASE, fig_num
+                """,
+                (set_id,),
+            ).fetchall()
+        return [
+            {
+                "fig_num": r[0],
+                "name": r[1],
+                "quantity": r[2],
+                "image_path": r[3],
+            }
+            for r in rows
+        ]
+
+    def replace_set_minifigs(self, set_id: int, minifigs: list[dict[str, Any]]) -> None:
+        """Same wholesale-replace approach as replace_set_parts."""
+        with self.create_connection() as conn:
+            conn.execute("DELETE FROM set_minifigs WHERE setID = ?", (set_id,))
+            conn.executemany(
+                """
+                INSERT INTO set_minifigs (setID, fig_num, name, quantity, image_path)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        set_id,
+                        m["fig_num"],
+                        m.get("name"),
+                        m.get("quantity") or 0,
+                        m.get("image_path"),
+                    )
+                    for m in minifigs
+                ],
             )
 
     def insert_set_data(self, set_data: dict[str, Any]) -> None:

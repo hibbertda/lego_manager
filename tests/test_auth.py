@@ -141,6 +141,40 @@ def test_saving_brickset_settings_requires_api_key_when_none_exists(admin_client
     assert b"An API key is required" in response.data
 
 
+def test_admin_can_access_rebrickable_page(admin_client):
+    response = admin_client.get("/api/admin/rebrickable")
+    assert response.status_code == 200
+
+
+def test_regular_user_cannot_access_rebrickable_page(user_client):
+    response = user_client.get("/api/admin/rebrickable")
+    assert response.status_code == 403
+
+
+def test_admin_can_save_rebrickable_settings(app, admin_client):
+    response = admin_client.post(
+        "/api/admin/rebrickable", json={"api_key": "test-rb-key"}
+    )
+    assert response.status_code == 200
+    saved = app.db_ops.get_rebrickable_settings()
+    assert saved["api_key"] == "test-rb-key"
+    assert app.rebrickable_api.api_key == "test-rb-key"
+
+
+def test_saving_rebrickable_settings_without_api_key_keeps_existing(app, admin_client):
+    app.db_ops.save_rebrickable_settings(api_key="original-rb-key")
+    response = admin_client.post("/api/admin/rebrickable", json={"api_key": ""})
+    assert response.status_code == 200
+    saved = app.db_ops.get_rebrickable_settings()
+    assert saved["api_key"] == "original-rb-key"
+
+
+def test_saving_rebrickable_settings_requires_api_key_when_none_exists(admin_client):
+    response = admin_client.post("/api/admin/rebrickable", json={"api_key": ""})
+    assert response.status_code == 400
+    assert b"An API key is required" in response.data
+
+
 def test_admin_can_create_and_delete_local_user(app, admin_client):
     response = admin_client.post(
         "/api/admin/users",

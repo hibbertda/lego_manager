@@ -449,3 +449,164 @@ def test_count_owned_sets_excludes_wishlist(db_ops):
     db_ops.update_build_status_only(3, "wishlist")
 
     assert db_ops.count_owned_sets() == 2
+
+
+def test_rebrickable_settings_roundtrip(db_ops):
+    assert db_ops.get_rebrickable_settings() is None
+
+    db_ops.save_rebrickable_settings(api_key="abc123")
+
+    assert db_ops.get_rebrickable_settings() == {"api_key": "abc123"}
+
+    db_ops.save_rebrickable_settings(api_key="xyz789")
+
+    assert db_ops.get_rebrickable_settings() == {"api_key": "xyz789"}
+
+
+def test_replace_set_parts_and_get_set_parts(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=200))
+
+    assert db_ops.get_set_parts(200) == []
+    assert db_ops.has_set_parts(200) is False
+
+    parts = [
+        {
+            "part_num": "3001",
+            "color_id": 5,
+            "name": "Brick 2 x 4",
+            "color_name": "Red",
+            "quantity": 4,
+            "image_path": "_parts_cache/3001_5.jpg",
+        },
+        {
+            "part_num": "3002",
+            "color_id": 0,
+            "name": "Brick 2 x 2",
+            "color_name": "Black",
+            "quantity": 2,
+            "image_path": None,
+        },
+    ]
+    db_ops.replace_set_parts(200, parts)
+
+    stored = db_ops.get_set_parts(200)
+    assert db_ops.has_set_parts(200) is True
+    assert {p["part_num"] for p in stored} == {"3001", "3002"}
+    brick = next(p for p in stored if p["part_num"] == "3001")
+    assert brick["quantity"] == 4
+    assert brick["image_path"] == "_parts_cache/3001_5.jpg"
+
+
+def test_replace_set_parts_overwrites_previous_sync(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=201))
+    db_ops.replace_set_parts(
+        201,
+        [
+            {
+                "part_num": "3001",
+                "color_id": 5,
+                "name": "Brick",
+                "color_name": "Red",
+                "quantity": 1,
+                "image_path": None,
+            }
+        ],
+    )
+
+    db_ops.replace_set_parts(
+        201,
+        [
+            {
+                "part_num": "3002",
+                "color_id": 0,
+                "name": "Plate",
+                "color_name": "Black",
+                "quantity": 9,
+                "image_path": None,
+            }
+        ],
+    )
+
+    stored = db_ops.get_set_parts(201)
+    assert len(stored) == 1
+    assert stored[0]["part_num"] == "3002"
+    assert stored[0]["quantity"] == 9
+
+
+def test_set_parts_deleted_when_set_deleted(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=202))
+    db_ops.replace_set_parts(
+        202,
+        [
+            {
+                "part_num": "3001",
+                "color_id": 5,
+                "name": "Brick",
+                "color_name": "Red",
+                "quantity": 1,
+                "image_path": None,
+            }
+        ],
+    )
+
+    db_ops.delete_set(202)
+
+    assert db_ops.get_set_parts(202) == []
+
+
+def test_replace_set_minifigs_and_get_set_minifigs(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=210))
+
+    assert db_ops.get_set_minifigs(210) == []
+
+    minifigs = [
+        {
+            "fig_num": "fig-001",
+            "name": "Luke Skywalker",
+            "quantity": 1,
+            "image_path": "_minifigs_cache/fig-001.jpg",
+        },
+        {
+            "fig_num": "fig-002",
+            "name": "Darth Vader",
+            "quantity": 2,
+            "image_path": None,
+        },
+    ]
+    db_ops.replace_set_minifigs(210, minifigs)
+
+    stored = db_ops.get_set_minifigs(210)
+    assert {m["fig_num"] for m in stored} == {"fig-001", "fig-002"}
+    vader = next(m for m in stored if m["fig_num"] == "fig-002")
+    assert vader["quantity"] == 2
+    assert vader["image_path"] is None
+
+
+def test_replace_set_minifigs_overwrites_previous_sync(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=211))
+    db_ops.replace_set_minifigs(
+        211,
+        [{"fig_num": "fig-001", "name": "A", "quantity": 1, "image_path": None}],
+    )
+
+    db_ops.replace_set_minifigs(
+        211,
+        [{"fig_num": "fig-002", "name": "B", "quantity": 3, "image_path": None}],
+    )
+
+    stored = db_ops.get_set_minifigs(211)
+    assert len(stored) == 1
+    assert stored[0]["fig_num"] == "fig-002"
+    assert stored[0]["quantity"] == 3
+
+
+def test_set_minifigs_deleted_when_set_deleted(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=212))
+    db_ops.replace_set_minifigs(
+        212,
+        [{"fig_num": "fig-001", "name": "A", "quantity": 1, "image_path": None}],
+    )
+
+    db_ops.delete_set(212)
+
+    assert db_ops.get_set_minifigs(212) == []
