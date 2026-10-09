@@ -250,61 +250,6 @@ export default function SetDetailPage() {
             Set #{set.setNumber} · {set.year ?? '—'} · {set.theme ?? '—'} · {set.pieces ?? '—'} pcs
           </p>
 
-          <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
-            <h3>Build progress &amp; location</h3>
-            <form onSubmit={saveProgress} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.9rem' }}>
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label>Status</label>
-                <select
-                  value={buildStatus}
-                  onChange={(e) => setBuildStatus(e.target.value)}
-                  style={{ width: 'auto', minWidth: '12rem' }}
-                >
-                  {OWNED_BUILD_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {BUILD_STATUS_META[s].label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'end' }}>
-                <div className="field" style={{ marginBottom: 0 }}>
-                  <label>Current page</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={buildPage}
-                    onChange={(e) => setBuildPage(e.target.value)}
-                    style={{ width: '6rem' }}
-                  />
-                </div>
-                <button className="btn btn-primary" type="submit" disabled={savingProgress}>
-                  {savingProgress ? <span className="spinner" /> : 'Save progress'}
-                </button>
-              </div>
-            </form>
-
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Location
-                {savingLocation && <span className="spinner" style={{ width: '0.8rem', height: '0.8rem' }} />}
-              </label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                list="location-options"
-                placeholder="e.g. Shelf 3, Bin A"
-                style={{ width: 'auto', minWidth: '12rem' }}
-              />
-              <datalist id="location-options">
-                {data.locations.map((l) => (
-                  <option key={l} value={l} />
-                ))}
-              </datalist>
-            </div>
-          </div>
-
           {set.label_url && (
             <div style={{ marginBottom: '1rem' }}>
               <a className="btn btn-outline btn-sm" href={set.label_url} target="_blank" rel="noreferrer">
@@ -420,6 +365,61 @@ export default function SetDetailPage() {
               style={{ display: 'none' }}
               onChange={(e) => uploadPhotos(e.target.files)}
             />
+          </div>
+
+          <div className="card" style={{ padding: '1rem', marginTop: '0.75rem' }}>
+            <h3>Build progress &amp; location</h3>
+            <form onSubmit={saveProgress} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.9rem' }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Status</label>
+                <select
+                  value={buildStatus}
+                  onChange={(e) => setBuildStatus(e.target.value)}
+                  style={{ width: 'auto', minWidth: '12rem' }}
+                >
+                  {OWNED_BUILD_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {BUILD_STATUS_META[s].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'end' }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Current page</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={buildPage}
+                    onChange={(e) => setBuildPage(e.target.value)}
+                    style={{ width: '6rem' }}
+                  />
+                </div>
+                <button className="btn btn-primary" type="submit" disabled={savingProgress}>
+                  {savingProgress ? <span className="spinner" /> : 'Save progress'}
+                </button>
+              </div>
+            </form>
+
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Location
+                {savingLocation && <span className="spinner" style={{ width: '0.8rem', height: '0.8rem' }} />}
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                list="location-options"
+                placeholder="e.g. Shelf 3, Bin A"
+                style={{ width: 'auto', minWidth: '12rem' }}
+              />
+              <datalist id="location-options">
+                {data.locations.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
+            </div>
           </div>
         </div>
       </div>
