@@ -62,6 +62,14 @@ function AppRoutes() {
           </PublicOnly>
         }
       />
+      <Route
+        path="/login/local"
+        element={
+          <PublicOnly>
+            <LoginPage fallback />
+          </PublicOnly>
+        }
+      />
       <Route path="/setup" element={<SetupPage />} />
       <Route
         path="/*"
@@ -116,7 +124,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter basename="/app">
+        <BrowserRouter>
           <AuthProvider>
             <AppRoutes />
           </AuthProvider>

@@ -52,7 +52,7 @@ def _install_api_auth_gate(setup_state):
         def _api_aware_require_login(*args, __func=func, __app=app, **kwargs):
             endpoint = request.endpoint or ""
             if endpoint.startswith("api."):
-                if endpoint in {"api.session", "api.setup", "api.login"}:
+                if endpoint in {"api.session", "api.setup", "api.login", "api.login_local"}:
                     return None
                 if not __app.auth_ops.has_any_users():
                     return _json_error("Initial setup is required.", 403)
@@ -205,6 +205,9 @@ def _session_payload() -> dict[str, Any]:
         "brickset_configured": bool(current_app.brickset_api.api_key),
         "oidc_enabled": bool(provider and provider["enabled"]),
         "oidc_name": provider["name"] if provider else None,
+        "local_disabled": bool(
+            provider and provider["enabled"] and provider.get("disable_local_login")
+        ),
     }
     if current_user.is_authenticated:
         payload["owned_set_count"] = current_app.db_ops.count_owned_sets()
@@ -247,7 +250,7 @@ def _serialize_set(set_data: dict[str, Any], detailed: bool = False) -> dict[str
         "status_label": status_meta["label"],
         "status_icon": status_meta["icon"],
         "status_badge_class": status_meta["badge_class"],
-        "detail_url": url_for("sets.set_detail", set_id=set_data["setID"]),
+        "detail_url": f"/sets/{set_data['setID']}",
         "label_image_url": _set_label_image_url(set_data, has_label=has_label),
     }
     if detailed:
@@ -347,6 +350,28 @@ def login():
             "Local login is disabled. Use single sign-on, or the fallback login if needed.",
             403,
         )
+
+    payload = _request_payload()
+    username = _string_value(payload, "username").strip()
+    password = _string_value(payload, "password")
+    user_data = current_app.auth_ops.verify_local_login(username, password)
+    if not user_data:
+        return _json_error("Invalid username or password.", 401)
+
+    login_user(User(user_data))
+    return jsonify(_session_payload())
+
+
+@api_bp.route("/login/local", methods=["POST"])
+@limiter.limit("10 per minute", methods=["POST"])
+def login_local():
+    """Fallback local-login endpoint, always reachable even when SSO is
+    configured with disable_local_login — use if the external OIDC provider
+    is unavailable. Deliberately bypasses the local_disabled gate in /login."""
+    if current_app.auth_ops.has_any_users() is False:
+        return _json_error("Initial setup is required before logging in.", 403)
+    if current_user.is_authenticated:
+        return jsonify(_session_payload())
 
     payload = _request_payload()
     username = _string_value(payload, "username").strip()
@@ -754,7 +779,7 @@ def search_suggest():
             "year": set_data["year"],
             "theme": set_data["theme"],
             "image": _set_image_url(set_data),
-            "url": url_for("sets.set_detail", set_id=set_data["setID"]),
+            "url": f"/sets/{set_data['setID']}",
         }
         for set_data in sets_data
     ]

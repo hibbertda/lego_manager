@@ -1,90 +1,58 @@
-def test_index_redirects_to_my_sets(admin_client):
-    response = admin_client.get("/", follow_redirects=False)
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/setlist")
+"""Covers app/blueprints/api.py — the JSON API backing the React SPA. This
+supersedes tests/test_routes.py, which tested the Jinja UI these endpoints
+replaced; UI-only concerns (view toggles, mobile filter collapse, etc.) are
+no longer backend behavior and are not re-tested here."""
 
 
-def test_index_follow_redirect_shows_my_sets(admin_client):
-    response = admin_client.get("/", follow_redirects=True)
-    assert response.status_code == 200
-    assert b"LEGO Manager" in response.data
+def test_custom_static_blocks_path_traversal(admin_client):
+    response = admin_client.get("/files/sets/../../etc/passwd")
+    assert response.status_code == 404
 
 
-def test_list_sets_empty(admin_client):
-    response = admin_client.get("/setlist")
-    assert response.status_code == 200
-    assert b"No sets yet" in response.data
+def test_set_detail_404_for_missing_set(admin_client):
+    response = admin_client.get("/api/sets/999")
+    assert response.status_code == 404
 
 
-def test_search_without_query_shows_form_only(admin_client):
-    response = admin_client.get("/search")
-    assert response.status_code == 200
-    assert b"Search Sets" in response.data
-
-
-def test_search_suggest_requires_login(client):
-    response = client.get("/search/suggest?query=star")
-    assert response.status_code in (302, 401)
+def test_search_suggest_requires_login(admin_user, client):
+    response = client.get("/api/search/suggest?query=star")
+    assert response.status_code == 401
 
 
 def test_search_suggest_empty_query_returns_empty_results(admin_client):
-    response = admin_client.get("/search/suggest?query=")
+    response = admin_client.get("/api/search/suggest?query=")
     assert response.status_code == 200
-    assert response.get_json() == {"results": []}
+    assert response.get_json() == {"results": [], "total": 0}
 
 
 def test_search_suggest_no_matches(admin_client):
-    response = admin_client.get("/search/suggest?query=zzz_no_such_set")
+    response = admin_client.get("/api/search/suggest?query=zzz_no_such_set")
     assert response.status_code == 200
     data = response.get_json()
     assert data["results"] == []
     assert data["total"] == 0
 
 
-def test_set_detail_404_for_missing_set(admin_client):
-    response = admin_client.get("/set/999")
-    assert response.status_code == 404
-
-
-def test_custom_static_blocks_path_traversal(admin_client):
-    response = admin_client.get("/sets/../../etc/passwd")
-    assert response.status_code == 404
-
-
-def test_add_set_page_redirects_to_my_sets_with_modal(admin_client):
-    """GET /add_set is no longer a standalone page — adding a set now happens
-    via the "Add a Set" modal embedded on every page (see base.html)."""
-    response = admin_client.get("/add_set", follow_redirects=True)
-    assert response.status_code == 200
-    assert b"Set Number" in response.data
-    assert b"Add Manually" in response.data
-
-
 def test_add_set_manual_requires_name_and_number(admin_client):
     response = admin_client.post(
-        "/add_set/manual",
-        data={"csrf_token": "", "set_number": "", "name": ""},
-        follow_redirects=True,
+        "/api/sets/manual", data={"set_number": "", "name": ""}
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert b"Set number and name are required" in response.data
 
 
 def test_add_set_manual_creates_set_without_files(app, admin_client):
     response = admin_client.post(
-        "/add_set/manual",
+        "/api/sets/manual",
         data={
-            "csrf_token": "",
             "set_number": "99999",
             "name": "Manually Added Set",
             "year": "2024",
             "theme": "Custom",
             "pieces": "42",
         },
-        follow_redirects=True,
     )
-    assert response.status_code == 200
-    assert b"Manually Added Set" in response.data
+    assert response.status_code == 201
 
     sets_data, total = app.db_ops.list_sets()
     assert total == 1
@@ -96,6 +64,7 @@ def test_add_set_manual_creates_set_without_files(app, admin_client):
 
 def test_add_set_manual_with_image_and_pdf(app, admin_client):
     import io
+    import os
 
     from PIL import Image
 
@@ -104,18 +73,16 @@ def test_add_set_manual_with_image_and_pdf(app, admin_client):
     image_bytes.seek(0)
 
     response = admin_client.post(
-        "/add_set/manual",
+        "/api/sets/manual",
         data={
-            "csrf_token": "",
             "set_number": "88888",
             "name": "Set With Files",
             "image": (image_bytes, "box.jpg"),
             "instructions": (io.BytesIO(b"%PDF-1.4 fake"), "manual.pdf"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     sets_data, _ = app.db_ops.list_sets()
     added = next(s for s in sets_data if s["name"] == "Set With Files")
@@ -123,8 +90,6 @@ def test_add_set_manual_with_image_and_pdf(app, admin_client):
     assert added["local_images"][0].endswith("box.jpg")
     assert len(added["local_instructions"]) == 1
     assert added["local_instructions"][0].endswith("manual.pdf")
-
-    import os
 
     saved_image_path = os.path.join(app.config["SETS_DIR"], added["local_images"][0])
     assert os.path.isfile(saved_image_path)
@@ -134,17 +99,15 @@ def test_add_set_manual_rejects_bad_image_extension(admin_client):
     import io
 
     response = admin_client.post(
-        "/add_set/manual",
+        "/api/sets/manual",
         data={
-            "csrf_token": "",
             "set_number": "77777",
             "name": "Bad Image Set",
             "image": (io.BytesIO(b"not-an-image"), "virus.exe"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert b"Image must be a PNG, JPG, GIF, or WEBP file" in response.data
 
 
@@ -152,17 +115,15 @@ def test_add_set_manual_rejects_non_image_content_with_valid_extension(admin_cli
     import io
 
     response = admin_client.post(
-        "/add_set/manual",
+        "/api/sets/manual",
         data={
-            "csrf_token": "",
             "set_number": "66666",
             "name": "Spoofed Image Set",
             "image": (io.BytesIO(b"not-actually-a-jpeg"), "box.jpg"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert b"Image file is corrupt or is not a valid image" in response.data
 
 
@@ -170,30 +131,24 @@ def test_add_set_manual_rejects_non_pdf_content_with_valid_extension(admin_clien
     import io
 
     response = admin_client.post(
-        "/add_set/manual",
+        "/api/sets/manual",
         data={
-            "csrf_token": "",
             "set_number": "55555",
             "name": "Spoofed PDF Set",
             "instructions": (io.BytesIO(b"not-a-real-pdf"), "manual.pdf"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert b"Instructions file is not a valid PDF" in response.data
 
 
 def test_two_manual_sets_get_distinct_negative_ids(app, admin_client):
     admin_client.post(
-        "/add_set/manual",
-        data={"csrf_token": "", "set_number": "11111", "name": "First Manual Set"},
-        follow_redirects=True,
+        "/api/sets/manual", data={"set_number": "11111", "name": "First Manual Set"}
     )
     admin_client.post(
-        "/add_set/manual",
-        data={"csrf_token": "", "set_number": "22222", "name": "Second Manual Set"},
-        follow_redirects=True,
+        "/api/sets/manual", data={"set_number": "22222", "name": "Second Manual Set"}
     )
     sets_data, total = app.db_ops.list_sets()
     assert total == 2
@@ -202,7 +157,36 @@ def test_two_manual_sets_get_distinct_negative_ids(app, admin_client):
     assert all(i < 0 for i in ids)
 
 
-def test_update_progress_persists_and_redirects(app, admin_client):
+def test_add_set_manual_with_wishlist_category(app, admin_client):
+    response = admin_client.post(
+        "/api/sets/manual",
+        data={"set_number": "999-1", "name": "Dream Set", "build_status": "wishlist"},
+    )
+    assert response.status_code == 201
+    results, _ = app.db_ops.search_sets("999-1")
+    assert results[0]["build_status"] == "wishlist"
+
+    main_list = admin_client.get("/api/sets").get_json()
+    assert not any(s["name"] == "Dream Set" for s in main_list["sets"])
+    wishlist = admin_client.get("/api/wishlist").get_json()
+    assert any(s["name"] == "Dream Set" for s in wishlist["sets"])
+
+
+def test_add_set_manual_invalid_build_status_defaults(app, admin_client):
+    response = admin_client.post(
+        "/api/sets/manual",
+        data={
+            "set_number": "999-2",
+            "name": "Bogus Category Set",
+            "build_status": "not-a-real-status",
+        },
+    )
+    assert response.status_code == 201
+    results, _ = app.db_ops.search_sets("999-2")
+    assert results[0]["build_status"] == "not_started"
+
+
+def test_update_progress_persists(app, admin_client):
     sample = {
         "setID": 500,
         "number": "12345",
@@ -216,9 +200,10 @@ def test_update_progress_persists_and_redirects(app, admin_client):
     app.db_ops.insert_set_data(sample)
 
     response = admin_client.post(
-        "/set/500/progress", data={"build_page": "12", "build_status": "in_progress"}
+        "/api/sets/500/progress",
+        json={"build_page": 12, "build_status": "in_progress"},
     )
-    assert response.status_code == 302
+    assert response.status_code == 200
 
     updated = app.db_ops.get_set_by_id(500)
     assert updated["build_page"] == 12
@@ -227,7 +212,7 @@ def test_update_progress_persists_and_redirects(app, admin_client):
 
 def test_update_progress_404_for_missing_set(admin_client):
     response = admin_client.post(
-        "/set/999/progress", data={"build_page": "1", "build_status": "in_progress"}
+        "/api/sets/999/progress", data={"build_page": "1", "build_status": "in_progress"}
     )
     assert response.status_code == 404
 
@@ -245,7 +230,7 @@ def test_update_progress_page_persists_via_json(app, admin_client):
     }
     app.db_ops.insert_set_data(sample)
 
-    response = admin_client.post("/set/501/progress/page", json={"build_page": 7})
+    response = admin_client.post("/api/sets/501/progress/page", json={"build_page": 7})
     assert response.status_code == 200
     assert response.get_json() == {"ok": True, "build_page": 7}
 
@@ -269,7 +254,7 @@ def test_update_progress_page_does_not_override_existing_status(app, admin_clien
     app.db_ops.insert_set_data(sample)
     app.db_ops.update_build_progress(502, 40, "complete")
 
-    admin_client.post("/set/502/progress/page", json={"build_page": 41})
+    admin_client.post("/api/sets/502/progress/page", json={"build_page": 41})
 
     updated = app.db_ops.get_set_by_id(502)
     assert updated["build_page"] == 41
@@ -277,7 +262,7 @@ def test_update_progress_page_does_not_override_existing_status(app, admin_clien
 
 
 def test_update_progress_page_404_for_missing_set(admin_client):
-    response = admin_client.post("/set/999/progress/page", json={"build_page": 1})
+    response = admin_client.post("/api/sets/999/progress/page", json={"build_page": 1})
     assert response.status_code == 404
 
 
@@ -295,12 +280,12 @@ def test_update_progress_page_rejects_non_integer(app, admin_client):
     app.db_ops.insert_set_data(sample)
 
     response = admin_client.post(
-        "/set/503/progress/page", json={"build_page": "not-a-number"}
+        "/api/sets/503/progress/page", json={"build_page": "not-a-number"}
     )
     assert response.status_code == 400
 
 
-def test_delete_set_removes_it_and_its_files(app, admin_client, tmp_path):
+def test_delete_set_removes_it_and_its_files(app, admin_client):
     import os
 
     sample = {
@@ -320,18 +305,32 @@ def test_delete_set_removes_it_and_its_files(app, admin_client, tmp_path):
     with open(os.path.join(set_dir, "images", "x.jpg"), "wb") as f:
         f.write(b"fake")
 
-    response = admin_client.post("/set/501/delete")
-    assert response.status_code == 302
+    response = admin_client.delete("/api/sets/501")
+    assert response.status_code == 200
     assert app.db_ops.get_set_by_id(501) is None
     assert not os.path.isdir(set_dir)
 
 
 def test_delete_set_404_for_missing_set(admin_client):
-    response = admin_client.post("/set/999/delete")
+    response = admin_client.delete("/api/sets/999")
     assert response.status_code == 404
 
 
-def test_list_sets_view_toggle_and_theme_filter(app, admin_client):
+def test_delete_set_forbidden_for_non_admin(app, user_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 805,
+            "number": "80005",
+            "name": "Keep Me",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    response = user_client.delete("/api/sets/805")
+    assert response.status_code == 403
+
+
+def test_list_sets_theme_filter(app, admin_client):
     app.db_ops.insert_set_data(
         {
             "setID": 601,
@@ -357,14 +356,10 @@ def test_list_sets_view_toggle_and_theme_filter(app, admin_client):
         }
     )
 
-    grid_response = admin_client.get("/setlist?view=grid")
-    assert grid_response.status_code == 200
-    assert b"Set A" in grid_response.data and b"Set B" in grid_response.data
-
-    filtered_response = admin_client.get("/setlist?theme=Technic")
-    assert filtered_response.status_code == 200
-    assert b"Set B" in filtered_response.data
-    assert b"Set A" not in filtered_response.data
+    response = admin_client.get("/api/sets?theme=Technic")
+    assert response.status_code == 200
+    names = {s["name"] for s in response.get_json()["sets"]}
+    assert names == {"Set B"}
 
 
 def test_list_sets_sort_option_orders_results_and_falls_back_when_invalid(
@@ -395,41 +390,19 @@ def test_list_sets_sort_option_orders_results_and_falls_back_when_invalid(
         }
     )
 
-    year_response = admin_client.get("/setlist?sort=year")
-    assert year_response.status_code == 200
-    assert year_response.data.index(b"Apple Set") < year_response.data.index(
-        b"Zebra Set"
+    def names(resp):
+        return [s["name"] for s in resp.get_json()["sets"]]
+
+    year_response = admin_client.get("/api/sets?sort=year")
+    assert names(year_response).index("Apple Set") < names(year_response).index(
+        "Zebra Set"
     )
 
-    default_response = admin_client.get("/setlist")
-    assert default_response.data.index(b"Apple Set") < default_response.data.index(
-        b"Zebra Set"
-    )
-
-    bogus_response = admin_client.get("/setlist?sort=bogus")
+    bogus_response = admin_client.get("/api/sets?sort=bogus")
     assert bogus_response.status_code == 200
-    assert bogus_response.data.index(b"Apple Set") < bogus_response.data.index(
-        b"Zebra Set"
+    assert names(bogus_response).index("Apple Set") < names(bogus_response).index(
+        "Zebra Set"
     )
-
-
-def test_list_sets_defaults_to_grid_view(app, admin_client):
-    app.db_ops.insert_set_data(
-        {
-            "setID": 706,
-            "number": "1",
-            "name": "Default View Set",
-            "year": 2024,
-            "theme": "Star Wars",
-            "pieces": 1,
-            "local_images": [],
-            "local_instructions": [],
-        }
-    )
-
-    response = admin_client.get("/setlist")
-    assert response.status_code == 200
-    assert b"set-grid-card" in response.data
 
 
 def test_toggle_favorite(app, admin_client):
@@ -446,16 +419,16 @@ def test_toggle_favorite(app, admin_client):
         }
     )
 
-    response = admin_client.post("/set/701/favorite")
+    response = admin_client.post("/api/sets/701/favorite")
     assert response.status_code == 200
     assert response.get_json() == {"ok": True, "favorite": True}
 
-    response = admin_client.post("/set/701/favorite")
+    response = admin_client.post("/api/sets/701/favorite")
     assert response.get_json() == {"ok": True, "favorite": False}
 
 
 def test_toggle_favorite_404_for_missing_set(admin_client):
-    response = admin_client.post("/set/999/favorite")
+    response = admin_client.post("/api/sets/999/favorite")
     assert response.status_code == 404
 
 
@@ -473,7 +446,9 @@ def test_update_status_only(app, admin_client):
         }
     )
 
-    response = admin_client.post("/set/702/status", json={"build_status": "storage"})
+    response = admin_client.post(
+        "/api/sets/702/status", json={"build_status": "storage"}
+    )
     assert response.status_code == 200
     assert response.get_json() == {"ok": True, "build_status": "storage"}
     assert app.db_ops.get_set_by_id(702)["build_status"] == "storage"
@@ -493,11 +468,11 @@ def test_update_status_only_rejects_invalid_status(app, admin_client):
         }
     )
 
-    response = admin_client.post("/set/703/status", json={"build_status": "bogus"})
+    response = admin_client.post("/api/sets/703/status", json={"build_status": "bogus"})
     assert response.status_code == 400
 
 
-def test_update_location_persists_and_redirects(app, admin_client):
+def test_update_location_persists(app, admin_client):
     app.db_ops.insert_set_data(
         {
             "setID": 705,
@@ -512,14 +487,14 @@ def test_update_location_persists_and_redirects(app, admin_client):
     )
 
     response = admin_client.post(
-        "/set/705/location", data={"location": "Shelf 3"}, follow_redirects=True
+        "/api/sets/705/location", data={"location": "Shelf 3"}
     )
     assert response.status_code == 200
     assert app.db_ops.get_set_by_id(705)["location"] == "Shelf 3"
 
 
 def test_update_location_404_for_missing_set(admin_client):
-    response = admin_client.post("/set/999/location", data={"location": "Shelf 3"})
+    response = admin_client.post("/api/sets/999/location", data={"location": "Shelf 3"})
     assert response.status_code == 404
 
 
@@ -540,7 +515,9 @@ def test_changing_status_to_storage_clears_location(app, admin_client):
     app.db_ops.update_build_status_only(706, "complete")
     assert app.db_ops.get_set_by_id(706)["location"] == "Shelf 3"
 
-    response = admin_client.post("/set/706/status", json={"build_status": "storage"})
+    response = admin_client.post(
+        "/api/sets/706/status", json={"build_status": "storage"}
+    )
     assert response.status_code == 200
     assert app.db_ops.get_set_by_id(706)["location"] == ""
 
@@ -561,10 +538,10 @@ def test_list_sets_location_filter(app, admin_client):
         )
         app.db_ops.update_location(i, location)
 
-    response = admin_client.get("/setlist?location=Shelf+3")
+    response = admin_client.get("/api/sets?location=Shelf+3")
     assert response.status_code == 200
-    assert b"Set 707" in response.data
-    assert b"Set 708" not in response.data
+    names = {s["name"] for s in response.get_json()["sets"]}
+    assert names == {"Set 707"}
 
 
 def test_list_sets_favorite_filter(app, admin_client):
@@ -592,73 +569,12 @@ def test_list_sets_favorite_filter(app, admin_client):
             "local_instructions": [],
         }
     )
-    admin_client.post("/set/704/favorite")
+    admin_client.post("/api/sets/704/favorite")
 
-    response = admin_client.get("/setlist?favorite=1")
+    response = admin_client.get("/api/sets?favorite=1")
     assert response.status_code == 200
-    assert b"Set Fave" in response.data
-    assert b"Set Plain" not in response.data
-
-
-def test_list_sets_items_returns_next_page_fragment(app, admin_client):
-    for i in range(15):
-        app.db_ops.insert_set_data(
-            {
-                "setID": 900 + i,
-                "number": str(900 + i),
-                "name": f"Scroll Set {i:02d}",
-                "year": 2024,
-                "theme": "Star Wars",
-                "pieces": 1,
-                "local_images": [],
-                "local_instructions": [],
-            }
-        )
-
-    first_page = admin_client.get("/setlist")
-    assert first_page.status_code == 200
-    assert b'id="sets-scroll-sentinel"' in first_page.data
-    assert b'data-has-more="true"' in first_page.data
-    assert b'data-next-page="2"' in first_page.data
-
-    response = admin_client.get("/setlist/items?page=2&view=grid&sort=name")
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert payload["has_more"] is False
-    assert payload["next_page"] == 3
-    assert "Scroll Set" in payload["html"]
-
-
-def test_list_sets_items_respects_filters(app, admin_client):
-    app.db_ops.insert_set_data(
-        {
-            "setID": 950,
-            "number": "1",
-            "name": "Technic Set",
-            "year": 2024,
-            "theme": "Technic",
-            "pieces": 1,
-            "local_images": [],
-            "local_instructions": [],
-        }
-    )
-    app.db_ops.insert_set_data(
-        {
-            "setID": 951,
-            "number": "2",
-            "name": "Star Wars Set",
-            "year": 2024,
-            "theme": "Star Wars",
-            "pieces": 1,
-            "local_images": [],
-            "local_instructions": [],
-        }
-    )
-
-    response = admin_client.get("/setlist/items?page=1&theme=Technic")
-    payload = response.get_json()
-    assert "Technic Set" in payload["html"]
-    assert "Star Wars Set" not in payload["html"]
+    names = {s["name"] for s in response.get_json()["sets"]}
+    assert names == {"Set Fave"}
 
 
 def test_wishlist_items_excluded_from_main_list(app, admin_client):
@@ -676,17 +592,13 @@ def test_wishlist_items_excluded_from_main_list(app, admin_client):
     )
     app.db_ops.update_build_status_only(960, "wishlist")
 
-    response = admin_client.get("/setlist")
-    assert b"Wanted Set" not in response.data
+    response = admin_client.get("/api/sets")
+    assert not any(s["name"] == "Wanted Set" for s in response.get_json()["sets"])
 
     # Even a manually crafted status=wishlist query string must not leak
     # wishlist items into the main list.
-    response = admin_client.get("/setlist?status=wishlist")
-    assert b"Wanted Set" not in response.data
-
-    response = admin_client.get("/setlist/items?status=wishlist")
-    payload = response.get_json()
-    assert "Wanted Set" not in payload["html"]
+    response = admin_client.get("/api/sets?status=wishlist")
+    assert not any(s["name"] == "Wanted Set" for s in response.get_json()["sets"])
 
 
 def test_wishlist_page_shows_wishlist_items(app, admin_client):
@@ -716,47 +628,10 @@ def test_wishlist_page_shows_wishlist_items(app, admin_client):
         }
     )
 
-    response = admin_client.get("/wishlist")
+    response = admin_client.get("/api/wishlist")
     assert response.status_code == 200
-    assert b"Wanted Set" in response.data
-    assert b"Owned Set" not in response.data
-
-    response = admin_client.get("/wishlist/items")
-    payload = response.get_json()
-    assert "Wanted Set" in payload["html"]
-    assert "Owned Set" not in payload["html"]
-
-
-def test_add_set_manual_with_wishlist_category(app, admin_client):
-    response = admin_client.post(
-        "/add_set/manual",
-        data={
-            "set_number": "999-1",
-            "name": "Dream Set",
-            "build_status": "wishlist",
-        },
-    )
-    assert response.status_code == 302
-    results, _ = app.db_ops.search_sets("999-1")
-    assert results[0]["build_status"] == "wishlist"
-
-    # Should show up on the wishlist page, not the main list.
-    assert b"Dream Set" not in admin_client.get("/setlist").data
-    assert b"Dream Set" in admin_client.get("/wishlist").data
-
-
-def test_add_set_manual_invalid_build_status_defaults(app, admin_client):
-    response = admin_client.post(
-        "/add_set/manual",
-        data={
-            "set_number": "999-2",
-            "name": "Bogus Category Set",
-            "build_status": "not-a-real-status",
-        },
-    )
-    assert response.status_code == 302
-    results, _ = app.db_ops.search_sets("999-2")
-    assert results[0]["build_status"] == "not_started"
+    names = {s["name"] for s in response.get_json()["sets"]}
+    assert names == {"Wanted Set"}
 
 
 def test_edit_set_updates_metadata(app, admin_client):
@@ -774,19 +649,11 @@ def test_edit_set_updates_metadata(app, admin_client):
     )
 
     response = admin_client.post(
-        "/set/801/edit",
-        data={
-            "csrf_token": "",
-            "name": "New Name",
-            "year": "2024",
-            "theme": "New Theme",
-            "pieces": "500",
-        },
-        follow_redirects=True,
+        "/api/sets/801/edit",
+        data={"name": "New Name", "year": "2024", "theme": "New Theme", "pieces": "500"},
     )
 
     assert response.status_code == 200
-    assert b"Set updated" in response.data
     updated = app.db_ops.get_set_by_id(801)
     assert updated["name"] == "New Name"
     assert updated["year"] == 2024
@@ -805,13 +672,9 @@ def test_edit_set_requires_name(app, admin_client):
         }
     )
 
-    response = admin_client.post(
-        "/set/802/edit",
-        data={"csrf_token": "", "name": ""},
-        follow_redirects=True,
-    )
+    response = admin_client.post("/api/sets/802/edit", data={"name": ""})
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert b"Name is required" in response.data
     assert app.db_ops.get_set_by_id(802)["name"] == "Keep Me"
 
@@ -830,14 +693,12 @@ def test_edit_set_appends_new_instruction_pdf(app, admin_client):
     )
 
     response = admin_client.post(
-        "/set/803/edit",
+        "/api/sets/803/edit",
         data={
-            "csrf_token": "",
             "name": "Instr Set",
             "instructions": (io.BytesIO(b"%PDF-1.4 fake"), "extra.pdf"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
     )
 
     assert response.status_code == 200
@@ -860,23 +721,21 @@ def test_edit_set_rejects_non_pdf_content(app, admin_client):
     )
 
     response = admin_client.post(
-        "/set/804/edit",
+        "/api/sets/804/edit",
         data={
-            "csrf_token": "",
             "name": "Instr Set",
             "instructions": (io.BytesIO(b"not-a-pdf"), "extra.pdf"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert b"Instructions file is not a valid PDF" in response.data
     assert app.db_ops.get_set_by_id(804)["local_instructions"] == []
 
 
 def test_edit_set_404_for_missing_set(admin_client):
-    response = admin_client.post("/set/999/edit", data={"csrf_token": "", "name": "X"})
+    response = admin_client.post("/api/sets/999/edit", data={"name": "X"})
     assert response.status_code == 404
 
 
@@ -890,9 +749,7 @@ def test_edit_set_forbidden_for_non_admin(app, user_client):
             "local_instructions": [],
         }
     )
-    response = user_client.post(
-        "/set/805/edit", data={"csrf_token": "", "name": "Hacked"}
-    )
+    response = user_client.post("/api/sets/805/edit", data={"name": "Hacked"})
     assert response.status_code == 403
 
 
@@ -907,14 +764,14 @@ def test_refresh_set_manual_set_shows_error(app, admin_client):
         }
     )
 
-    response = admin_client.post("/set/-1/refresh", follow_redirects=True)
+    response = admin_client.post("/api/sets/-1/refresh")
 
-    assert response.status_code == 200
-    assert b"isn&#39;t linked to Brickset" in response.data
+    assert response.status_code == 400
+    assert b"isn&#39;t linked to Brickset" in response.data or b"isn't linked to Brickset" in response.data
 
 
 def test_refresh_set_404_for_missing_set(admin_client):
-    response = admin_client.post("/set/999/refresh")
+    response = admin_client.post("/api/sets/999/refresh")
     assert response.status_code == 404
 
 
@@ -947,10 +804,9 @@ def test_refresh_set_success_re_downloads_data(app, admin_client, monkeypatch):
 
     monkeypatch.setattr(app.brickset_api, "get_combined_data", fake_get_combined_data)
 
-    response = admin_client.post("/set/806/refresh", follow_redirects=True)
+    response = admin_client.post("/api/sets/806/refresh")
 
     assert response.status_code == 200
-    assert b"Set refreshed from Brickset" in response.data
     updated = app.db_ops.get_set_by_id(806)
     assert updated["name"] == "Fresh Name"
     assert updated["local_instructions"] == ["80006/instructions/fresh.pdf"]
@@ -968,16 +824,10 @@ def test_refresh_set_failure_shows_error(app, admin_client, monkeypatch):
     )
     monkeypatch.setattr(app.brickset_api, "get_combined_data", lambda *a, **k: None)
 
-    response = admin_client.post("/set/807/refresh", follow_redirects=True)
+    response = admin_client.post("/api/sets/807/refresh")
 
-    assert response.status_code == 200
+    assert response.status_code == 422
     assert b"Failed to refresh from Brickset" in response.data
-
-
-def test_utility_missing_metadata_page_loads(user_client):
-    response = user_client.get("/utility/missing-metadata")
-    assert response.status_code == 200
-    assert b"Find sets with missing metadata" in response.data
 
 
 def test_run_missing_metadata_task_lists_incomplete_sets(app, admin_client):
@@ -1003,18 +853,16 @@ def test_run_missing_metadata_task_lists_incomplete_sets(app, admin_client):
         }
     )
 
-    response = admin_client.post(
-        "/utility/missing-metadata/run",
-        data={"csrf_token": ""},
-        follow_redirects=True,
-    )
+    response = admin_client.post("/api/utility/missing-metadata/run")
 
     assert response.status_code == 200
-    assert b"Incomplete Set" in response.data
-    assert b"Complete Set" not in response.data
+    results = response.get_json()["results"]
+    names = {r["name"] for r in results}
+    assert "Incomplete Set" in names
+    assert "Complete Set" not in names
 
 
-def test_run_missing_metadata_task_no_gaps_shows_success(app, admin_client):
+def test_run_missing_metadata_task_no_gaps_returns_empty(app, admin_client):
     app.db_ops.insert_set_data(
         {
             "setID": 903,
@@ -1028,14 +876,10 @@ def test_run_missing_metadata_task_no_gaps_shows_success(app, admin_client):
         }
     )
 
-    response = admin_client.post(
-        "/utility/missing-metadata/run",
-        data={"csrf_token": ""},
-        follow_redirects=True,
-    )
+    response = admin_client.post("/api/utility/missing-metadata/run")
 
     assert response.status_code == 200
-    assert b"No sets are missing metadata" in response.data
+    assert response.get_json()["results"] == []
 
 
 def test_owned_set_count_excludes_wishlist(app, admin_client):
@@ -1079,14 +923,5 @@ def test_owned_set_count_excludes_wishlist(app, admin_client):
 
     assert app.db_ops.count_owned_sets() == 2
 
-    response = admin_client.get("/setlist")
-    assert response.status_code == 200
-    assert b"sets-counter-value" in response.data
-    assert b">2<" in response.data
-
-
-def test_sets_page_has_mobile_filters_toggle(admin_client):
-    response = admin_client.get("/setlist")
-    assert response.status_code == 200
-    assert b'data-bs-target="#filtersCollapse"' in response.data
-    assert b'id="filtersCollapse"' in response.data
+    response = admin_client.get("/api/session")
+    assert response.get_json()["owned_set_count"] == 2

@@ -14,6 +14,7 @@ interface AuthContextValue {
   loading: boolean;
   refresh: () => Promise<SessionInfo>;
   login: (username: string, password: string) => Promise<void>;
+  loginLocal: (username: string, password: string) => Promise<void>;
   setup: (username: string, password: string, confirmPassword: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -50,6 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loginLocal = useCallback(async (username: string, password: string) => {
+    try {
+      const { data } = await api.post<SessionInfo>('/login/local', { username, password });
+      setCsrfToken(data.csrf_token);
+      setSession(data);
+    } catch (err) {
+      throw new Error(extractErrorMessage(err, 'Invalid username or password.'));
+    }
+  }, []);
+
   const setup = useCallback(
     async (username: string, password: string, confirmPassword: string) => {
       try {
@@ -73,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   return (
-    <AuthContext.Provider value={{ session, loading, refresh, login, setup, logout }}>
+    <AuthContext.Provider value={{ session, loading, refresh, login, loginLocal, setup, logout }}>
       {children}
     </AuthContext.Provider>
   );

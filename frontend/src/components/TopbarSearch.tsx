@@ -69,7 +69,7 @@ export default function TopbarSearch() {
         <div className="topbar-search-results">
           {results.length === 0 && <p style={{ padding: '0.6rem 0.8rem', margin: 0 }}>No matching sets found.</p>}
           {results.map((r) => (
-            <a key={r.id} href={`/app/sets/${r.id}`} onClick={(e) => { e.preventDefault(); setOpen(false); navigate(`/sets/${r.id}`); }}>
+            <a key={r.id} href={`/sets/${r.id}`} onClick={(e) => { e.preventDefault(); setOpen(false); navigate(`/sets/${r.id}`); }}>
               {r.image ? (
                 <img src={r.image} alt="" style={{ width: '2.5rem', height: '2.5rem', objectFit: 'contain' }} />
               ) : (

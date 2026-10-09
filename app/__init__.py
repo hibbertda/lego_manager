@@ -24,7 +24,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 csrf = CSRFProtect()
 login_manager = LoginManager()
-login_manager.login_view = "auth.login"
+login_manager.login_view = "spa.index"
 # Brute-force protection for login/OIDC-callback endpoints (applied per-route
 # in app/blueprints/auth.py). In-memory storage is fine for this app's single
 # small-deployment threat model; if you scale to multiple worker processes
@@ -107,46 +107,6 @@ def create_app(config_class: type = Config) -> Flask:
         )
         return response
 
-    @app.context_processor
-    def _inject_add_set_globals():
-        # Used by the global "Add a Set" modal (embedded in base.html on every
-        # authenticated page), so it needs to be available everywhere, not
-        # just on a single route's render_template call.
-        if not current_user.is_authenticated:
-            return {}
-        return {"brickset_configured": bool(app.brickset_api.api_key)}
-
-    @app.context_processor
-    def _inject_owned_set_count():
-        # Powers the "My Sets" counter badge in the sidebar nav (base.html),
-        # present on every authenticated page, so it's injected globally
-        # rather than passed explicitly by every view.
-        if not current_user.is_authenticated:
-            return {}
-        return {"owned_set_count": app.db_ops.count_owned_sets()}
-
-    @app.context_processor
-    def _inject_build_status_meta():
-        # Single source of truth for build_status display (badge color/icon,
-        # dropdown labels, sidebar status filter) — see BUILD_STATUS_META in
-        # sql_ops.py. Exposed globally so templates don't each redefine it.
-        from app.sql_ops import BUILD_STATUS_META, VALID_BUILD_STATUSES
-
-        return {
-            "build_statuses": VALID_BUILD_STATUSES,
-            # Always the full list (including "wishlist"), regardless of any
-            # per-route override of build_statuses (e.g. the main sets list
-            # restricts build_statuses to owned-only statuses for its Status
-            # filter/quick-status dropdown) — used by the global "Add a Set"
-            # modal's category picker so Wishlist is always selectable there.
-            "all_build_statuses": VALID_BUILD_STATUSES,
-            "status_labels": {k: v["label"] for k, v in BUILD_STATUS_META.items()},
-            "status_icons": {k: v["icon"] for k, v in BUILD_STATUS_META.items()},
-            "status_badge_classes": {
-                k: v["badge_class"] for k, v in BUILD_STATUS_META.items()
-            },
-        }
-
     @login_manager.user_loader
     def load_user(user_id):
         from app.user import User
@@ -156,13 +116,13 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.before_request
     def _require_login():
-        # Endpoints reachable without an authenticated session.
+        # Endpoints reachable without an authenticated session. The React
+        # SPA (spa.index) is itself always reachable — it decides what to
+        # render client-side based on /api/session, so there's no separate
+        # server-rendered "login page" endpoint to special-case anymore.
         open_endpoints = {
-            "auth.login",
-            "auth.setup",
             "auth.oidc_login",
             "auth.oidc_callback",
-            "auth.local_login",
             "static",
             "spa.index",
         }
@@ -171,25 +131,19 @@ def create_app(config_class: type = Config) -> Flask:
             return None
 
         if not app.auth_ops.has_any_users():
-            return redirect(url_for("auth.setup"))
+            return redirect(url_for("spa.index"))
 
         if not current_user.is_authenticated:
-            return redirect(url_for("auth.login", next=request.path))
+            return redirect(url_for("spa.index"))
         return None
 
-    from app.blueprints.admin import admin_bp
     from app.blueprints.api import api_bp
     from app.blueprints.auth import auth_bp
-    from app.blueprints.main import main_bp
     from app.blueprints.sets import sets_bp
     from app.blueprints.spa import spa_bp
-    from app.blueprints.utility import utility_bp
 
-    app.register_blueprint(main_bp)
     app.register_blueprint(sets_bp)
     app.register_blueprint(auth_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(utility_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(spa_bp)
 

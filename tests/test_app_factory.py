@@ -35,7 +35,7 @@ def _make_app(tmp_path, monkeypatch, trust_proxy_headers=None):
 
 def _echo_forwarded(flask_app):
     client = flask_app.test_client()
-    client.post("/login", data={"username": "admin", "password": "adminpass123"})
+    client.post("/api/login", json={"username": "admin", "password": "adminpass123"})
     response = client.get(
         "/__test/echo-oidc-redirect-uri",
         headers={

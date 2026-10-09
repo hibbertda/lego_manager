@@ -25,6 +25,7 @@ export interface SessionInfo {
   owned_set_count?: number;
   oidc_enabled: boolean;
   oidc_name: string | null;
+  local_disabled: boolean;
 }
 
 export interface SetSummary {

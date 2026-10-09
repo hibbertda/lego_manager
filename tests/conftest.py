@@ -47,7 +47,7 @@ def regular_user(app):
 def admin_client(app, admin_user):
     """A test client already logged in as an admin user."""
     test_client = app.test_client()
-    test_client.post("/login", data={"username": "admin", "password": "adminpass123"})
+    test_client.post("/api/login", json={"username": "admin", "password": "adminpass123"})
     return test_client
 
 
@@ -56,8 +56,8 @@ def user_client(app, admin_user, regular_user):
     """A test client already logged in as a non-admin user.
 
     Depends on admin_user existing too, since the app requires at least one
-    account before /login is reachable at all (otherwise it redirects to /setup).
+    account before /api/login is reachable at all (otherwise it returns 403).
     """
     test_client = app.test_client()
-    test_client.post("/login", data={"username": "bob", "password": "bobpass123"})
+    test_client.post("/api/login", json={"username": "bob", "password": "bobpass123"})
     return test_client
