@@ -22,6 +22,7 @@ SET_COLUMNS = (
     "build_status",
     "favorite",
     "location",
+    "build_photos",
 )
 
 VALID_BUILD_STATUSES = (
@@ -113,6 +114,10 @@ def row_to_dict(row: tuple) -> dict[str, Any]:
             json.loads(data["local_instructions"]) if data["local_instructions"] else []
         )
     ]
+    data["build_photos"] = [
+        _strip_sets_prefix(p)
+        for p in (json.loads(data["build_photos"]) if data["build_photos"] else [])
+    ]
     data["build_page"] = data.get("build_page") or 0
     data["build_status"] = data.get("build_status") or "not_started"
     data["favorite"] = bool(data.get("favorite") or 0)
@@ -168,6 +173,10 @@ class DatabaseOps:
                 ),
                 ("favorite", "ALTER TABLE sets ADD COLUMN favorite INTEGER DEFAULT 0"),
                 ("location", "ALTER TABLE sets ADD COLUMN location TEXT DEFAULT NULL"),
+                (
+                    "build_photos",
+                    "ALTER TABLE sets ADD COLUMN build_photos TEXT DEFAULT NULL",
+                ),
             ):
                 if column in existing_columns:
                     continue
@@ -250,12 +259,15 @@ class DatabaseOps:
         build_status = existing["build_status"] if existing else "not_started"
         favorite = int(existing["favorite"]) if existing else 0
         location = (existing["location"] or None) if existing else None
+        # Build photos are user-uploaded (not sourced from Brickset), so they
+        # must survive re-inserts the same way build progress does.
+        build_photos = existing["build_photos"] if existing else []
 
         with self.create_connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO sets (setID, setNumber, numberVariant, name, year, theme, pieces, launchDate, instructions, local_images, local_instructions, build_page, build_status, favorite, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO sets (setID, setNumber, numberVariant, name, year, theme, pieces, launchDate, instructions, local_images, local_instructions, build_page, build_status, favorite, location, build_photos)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     set_id,
@@ -273,6 +285,7 @@ class DatabaseOps:
                     build_status,
                     favorite,
                     location,
+                    json.dumps(build_photos),
                 ),
             )
 
@@ -434,6 +447,42 @@ class DatabaseOps:
             conn.execute(
                 "UPDATE sets SET local_instructions = ? WHERE setID = ?",
                 (json.dumps(combined), set_id),
+            )
+        return True
+
+    def append_build_photos(self, set_id: int, rel_paths: list[str]) -> bool:
+        """Add user-uploaded completed-build photos to a set's existing list
+        (taken with a camera or uploaded from disk). Returns False if the
+        set doesn't exist."""
+        existing = self.get_set_by_id(set_id)
+        if not existing:
+            return False
+        # get_set_by_id already strips the 'sets/' prefix, so this stays
+        # consistent with insert_set_data's storage format.
+        combined = existing["build_photos"] + [
+            p for p in rel_paths if p not in existing["build_photos"]
+        ]
+        logger.info("Appending %d build photo(s) to set ID %s", len(rel_paths), set_id)
+        with self.create_connection() as conn:
+            conn.execute(
+                "UPDATE sets SET build_photos = ? WHERE setID = ?",
+                (json.dumps(combined), set_id),
+            )
+        return True
+
+    def remove_build_photo(self, set_id: int, rel_path: str) -> bool:
+        """Remove a single build photo's DB reference (the caller is
+        responsible for deleting the underlying file). Returns False if the
+        set doesn't exist or the path wasn't in its list."""
+        existing = self.get_set_by_id(set_id)
+        if not existing or rel_path not in existing["build_photos"]:
+            return False
+        remaining = [p for p in existing["build_photos"] if p != rel_path]
+        logger.info("Removing build photo %r from set ID %s", rel_path, set_id)
+        with self.create_connection() as conn:
+            conn.execute(
+                "UPDATE sets SET build_photos = ? WHERE setID = ?",
+                (json.dumps(remaining), set_id),
             )
         return True
 

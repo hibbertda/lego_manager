@@ -932,3 +932,197 @@ def test_owned_set_count_excludes_wishlist(app, admin_client):
 
     response = admin_client.get("/api/session")
     assert response.get_json()["owned_set_count"] == 2
+
+
+def _tiny_jpeg_bytes():
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (1, 1), color="blue").save(buf, format="JPEG")
+    buf.seek(0)
+    return buf
+
+
+def test_upload_build_photos_persists_and_serves(app, user_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 900,
+            "number": "90000",
+            "name": "Photo Test Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = user_client.post(
+        "/api/sets/900/photos",
+        data={"photos": (_tiny_jpeg_bytes(), "finished.jpg")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 201
+    payload = response.get_json()
+    assert len(payload["build_photos"]) == 1
+    assert payload["build_photos"][0].endswith("finished.jpg")
+    assert payload["build_photo_urls"][0].startswith("/files/sets/")
+
+    updated = app.db_ops.get_set_by_id(900)
+    assert updated["build_photos"] == payload["build_photos"]
+
+    import os
+
+    saved_path = os.path.join(app.config["SETS_DIR"], updated["build_photos"][0])
+    assert os.path.isfile(saved_path)
+
+    static_response = user_client.get(payload["build_photo_urls"][0])
+    assert static_response.status_code == 200
+
+
+def test_upload_build_photos_multiple_files_appends(app, user_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 901,
+            "number": "90001",
+            "name": "Multi Photo Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = user_client.post(
+        "/api/sets/901/photos",
+        data={
+            "photos": [
+                (_tiny_jpeg_bytes(), "one.jpg"),
+                (_tiny_jpeg_bytes(), "two.jpg"),
+            ]
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 201
+    assert len(response.get_json()["build_photos"]) == 2
+
+    # Uploading again with a same-named file should not clobber the first.
+    response2 = user_client.post(
+        "/api/sets/901/photos",
+        data={"photos": (_tiny_jpeg_bytes(), "one.jpg")},
+        content_type="multipart/form-data",
+    )
+    assert response2.status_code == 201
+    updated = app.db_ops.get_set_by_id(901)
+    assert len(updated["build_photos"]) == 3
+    assert len(set(updated["build_photos"])) == 3
+
+
+def test_upload_build_photos_rejects_bad_extension(app, user_client):
+    import io
+
+    app.db_ops.insert_set_data(
+        {
+            "setID": 902,
+            "number": "90002",
+            "name": "Bad Ext Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = user_client.post(
+        "/api/sets/902/photos",
+        data={"photos": (io.BytesIO(b"not-an-image"), "virus.exe")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 400
+    assert app.db_ops.get_set_by_id(902)["build_photos"] == []
+
+
+def test_upload_build_photos_rejects_non_image_content(app, user_client):
+    import io
+
+    app.db_ops.insert_set_data(
+        {
+            "setID": 903,
+            "number": "90003",
+            "name": "Fake Image Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+
+    response = user_client.post(
+        "/api/sets/903/photos",
+        data={"photos": (io.BytesIO(b"not-really-a-jpeg"), "fake.jpg")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 400
+    assert app.db_ops.get_set_by_id(903)["build_photos"] == []
+
+
+def test_upload_build_photos_requires_at_least_one_file(user_client):
+    response = user_client.post(
+        "/api/sets/900/photos",
+        data={},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code in (400, 404)
+
+
+def test_upload_build_photos_404_for_missing_set(user_client):
+    response = user_client.post(
+        "/api/sets/999/photos",
+        data={"photos": (_tiny_jpeg_bytes(), "x.jpg")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 404
+
+
+def test_delete_build_photo_removes_file_and_db_entry(app, user_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 904,
+            "number": "90004",
+            "name": "Delete Photo Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    upload = user_client.post(
+        "/api/sets/904/photos",
+        data={"photos": (_tiny_jpeg_bytes(), "deleteme.jpg")},
+        content_type="multipart/form-data",
+    )
+    rel_path = upload.get_json()["build_photos"][0]
+
+    import os
+
+    saved_path = os.path.join(app.config["SETS_DIR"], rel_path)
+    assert os.path.isfile(saved_path)
+
+    response = user_client.delete("/api/sets/904/photos", json={"path": rel_path})
+    assert response.status_code == 200
+    assert app.db_ops.get_set_by_id(904)["build_photos"] == []
+    assert not os.path.isfile(saved_path)
+
+
+def test_delete_build_photo_404_for_unknown_path(app, user_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 905,
+            "number": "90005",
+            "name": "No Photo Set",
+            "local_images": [],
+            "local_instructions": [],
+        }
+    )
+    response = user_client.delete(
+        "/api/sets/905/photos", json={"path": "90005/build_photos/ghost.jpg"}
+    )
+    assert response.status_code == 404
+
+
+def test_delete_build_photo_404_for_missing_set(user_client):
+    response = user_client.delete("/api/sets/999/photos", json={"path": "x/y.jpg"})
+    assert response.status_code == 404

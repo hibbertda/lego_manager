@@ -1,9 +1,9 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { AlertTriangle, CheckCircle2, Package, Pencil, RefreshCw, Tag, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Package, Pencil, RefreshCw, Tag, Trash2, Upload, X } from 'lucide-react';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
 import type { SetDetailResponse } from '../types';
 
@@ -33,6 +33,10 @@ export default function SetDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const set = data?.set;
 
@@ -96,6 +100,36 @@ export default function SetDetailPage() {
     } catch (err) {
       setActionError(extractErrorMessage(err, 'Failed to delete set.'));
       setShowDeleteConfirm(false);
+    }
+  }
+
+  async function uploadPhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingPhotos(true);
+    setActionError(null);
+    try {
+      const form = new FormData();
+      Array.from(files).forEach((f) => form.append('photos', f));
+      await api.post(`/sets/${setId}/photos`, form);
+      queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
+      setActionMessage('Photo(s) uploaded.');
+    } catch (err) {
+      setActionError(extractErrorMessage(err, 'Failed to upload photo(s).'));
+    } finally {
+      setUploadingPhotos(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    }
+  }
+
+  async function deletePhoto(path: string) {
+    setActionError(null);
+    try {
+      await api.delete(`/sets/${setId}/photos`, { data: { path } });
+      queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
+      setLightboxUrl(null);
+    } catch (err) {
+      setActionError(extractErrorMessage(err, 'Failed to delete photo.'));
     }
   }
 
@@ -195,6 +229,68 @@ export default function SetDetailPage() {
             </form>
           </div>
 
+          <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+            <h3>Build Photos</h3>
+            <p className="muted" style={{ fontSize: '0.82rem' }}>
+              Snap or upload photos of your completed build.
+            </p>
+            {!!set.build_photo_urls?.length && (
+              <div className="build-photo-grid">
+                {set.build_photo_urls.map((url, i) => (
+                  <div key={url} className="build-photo-thumb">
+                    <img
+                      src={url}
+                      alt={`Build photo ${i + 1}`}
+                      onClick={() => setLightboxUrl(url)}
+                    />
+                    <button
+                      type="button"
+                      className="build-photo-remove"
+                      aria-label="Delete photo"
+                      onClick={() => deletePhoto(set.build_photos?.[i] ?? '')}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="row-actions" style={{ marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                disabled={uploadingPhotos}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadingPhotos ? <span className="spinner" /> : <Upload size={14} />} Upload photos
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                disabled={uploadingPhotos}
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                <Camera size={14} /> Take photo
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => uploadPhotos(e.target.files)}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={(e) => uploadPhotos(e.target.files)}
+            />
+          </div>
+
           {set.label_url && (
             <div style={{ marginBottom: '1rem' }}>
               <a className="btn btn-outline btn-sm" href={set.label_url} target="_blank" rel="noreferrer">
@@ -271,6 +367,17 @@ export default function SetDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
           }}
         />
+      )}
+
+      {lightboxUrl && (
+        <div className="modal-backdrop" onClick={() => setLightboxUrl(null)}>
+          <div className="modal-box" style={{ maxWidth: '90vw', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn btn-outline btn-sm" style={{ marginBottom: '0.75rem' }} onClick={() => setLightboxUrl(null)}>
+              <X size={14} /> Close
+            </button>
+            <img src={lightboxUrl} alt="Build photo" style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 'var(--radius, 8px)' }} />
+          </div>
+        </div>
       )}
     </div>
   );

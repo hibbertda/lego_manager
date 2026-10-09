@@ -273,6 +273,11 @@ def _serialize_set(set_data: dict[str, Any], detailed: bool = False) -> dict[str
                     url_for("sets.custom_static", filename=pdf)
                     for pdf in (set_data.get("local_instructions") or [])
                 ],
+                "build_photos": set_data.get("build_photos") or [],
+                "build_photo_urls": [
+                    url_for("sets.custom_static", filename=photo)
+                    for photo in (set_data.get("build_photos") or [])
+                ],
                 "has_label": has_label,
                 "label_url": (
                     url_for("sets.set_label", set_id=set_data["setID"])
@@ -655,6 +660,91 @@ def update_progress_page(set_id):
 
     current_app.db_ops.update_build_page(set_id, max(0, build_page))
     return jsonify(ok=True, build_page=max(0, build_page))
+
+
+@api_bp.route("/sets/<int(signed=True):set_id>/photos", methods=["POST"])
+@login_required
+def upload_build_photos(set_id):
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        return _json_error("Not found", 404)
+
+    photo_files = [f for f in request.files.getlist("photos") if f and f.filename]
+    if not photo_files:
+        return _json_error("At least one photo file is required.", 400)
+
+    sets_dir = current_app.config["SETS_DIR"]
+    safe_set_number = secure_filename(str(set_data["setNumber"]))
+    rel_photos_dir = os.path.join(safe_set_number, "build_photos")
+
+    new_photos = []
+    for photo_file in photo_files:
+        ext = os.path.splitext(photo_file.filename)[1].lower()
+        if not _has_allowed_extension(photo_file.filename, ALLOWED_IMAGE_EXTENSIONS):
+            return _json_error("Photos must be PNG, JPG, GIF, or WEBP files.", 400)
+        if not _is_valid_image(photo_file, ext):
+            return _json_error(
+                "One of the uploaded photos is corrupt or is not a valid image.", 400
+            )
+        filename = secure_filename(photo_file.filename)
+        if not filename:
+            return _json_error("Photo filename is invalid.", 400)
+        # Avoid clobbering an existing file with the same name (e.g. two
+        # photos both named "IMG_0001.jpg" taken on different days).
+        base, suffix = os.path.splitext(filename)
+        candidate = filename
+        counter = 1
+        while os.path.exists(os.path.join(sets_dir, rel_photos_dir, candidate)):
+            candidate = f"{base}_{counter}{suffix}"
+            counter += 1
+        os.makedirs(os.path.join(sets_dir, rel_photos_dir), exist_ok=True)
+        rel_path = os.path.join(rel_photos_dir, candidate)
+        photo_file.save(os.path.join(sets_dir, rel_path))
+        new_photos.append(rel_path)
+
+    current_app.db_ops.append_build_photos(set_id, new_photos)
+    updated = current_app.db_ops.get_set_by_id(set_id)
+    return (
+        jsonify(
+            ok=True,
+            build_photos=updated["build_photos"],
+            build_photo_urls=[
+                url_for("sets.custom_static", filename=p)
+                for p in updated["build_photos"]
+            ],
+        ),
+        201,
+    )
+
+
+@api_bp.route("/sets/<int(signed=True):set_id>/photos", methods=["DELETE"])
+@login_required
+def delete_build_photo(set_id):
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        return _json_error("Not found", 404)
+
+    payload = _request_payload()
+    rel_path = _string_value(payload, "path")
+    if not rel_path:
+        return _json_error("A photo path is required.", 400)
+
+    # remove_build_photo only succeeds for a path already present in this
+    # set's stored build_photos list (itself always built server-side via
+    # secure_filename), so there's no path-traversal risk here even though
+    # rel_path comes straight from the request body.
+    removed = current_app.db_ops.remove_build_photo(set_id, rel_path)
+    if not removed:
+        return _json_error("Photo not found.", 404)
+
+    abs_path = os.path.join(current_app.config["SETS_DIR"], rel_path)
+    if os.path.isfile(abs_path):
+        try:
+            os.remove(abs_path)
+        except OSError:
+            pass
+
+    return jsonify(ok=True)
 
 
 @api_bp.route("/sets/<int(signed=True):set_id>/edit", methods=["POST"])
