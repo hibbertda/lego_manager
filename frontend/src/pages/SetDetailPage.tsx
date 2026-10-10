@@ -522,22 +522,24 @@ function PartsAndMinifigs({ setId, isAdmin }: { setId: number; isAdmin: boolean 
             {parts.length === 0 ? (
               <p className="muted" style={{ fontSize: '0.85rem' }}>No parts found for this set.</p>
             ) : (
-              <div className="part-tile-grid">
-                {parts.map((part) => (
-                  <div key={`${part.part_num}-${part.color_name}`} className="part-tile">
-                    <div className="part-tile-img">
-                      {part.image_url ? (
-                        <img src={part.image_url} alt={part.name} loading="lazy" />
-                      ) : (
-                        <Package size={24} strokeWidth={1.5} className="text-muted" />
-                      )}
+              <div className="part-tile-scroll">
+                <div className="part-tile-grid">
+                  {parts.map((part) => (
+                    <div key={`${part.part_num}-${part.color_name}`} className="part-tile">
+                      <div className="part-tile-img">
+                        {part.image_url ? (
+                          <img src={part.image_url} alt={part.name} loading="lazy" />
+                        ) : (
+                          <Package size={24} strokeWidth={1.5} className="text-muted" />
+                        )}
+                      </div>
+                      <div className="part-tile-info">
+                        <span className="part-tile-id">{part.part_num}</span>
+                        <span className="part-tile-qty">×{part.quantity}</span>
+                      </div>
                     </div>
-                    <div className="part-tile-info">
-                      <span className="part-tile-id">{part.part_num}</span>
-                      <span className="part-tile-qty">×{part.quantity}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -547,22 +549,24 @@ function PartsAndMinifigs({ setId, isAdmin }: { setId: number; isAdmin: boolean 
             {minifigs.length === 0 ? (
               <p className="muted" style={{ fontSize: '0.85rem' }}>No minifigs in this set.</p>
             ) : (
-              <div className="part-tile-grid">
-                {minifigs.map((fig) => (
-                  <div key={fig.fig_num} className="part-tile">
-                    <div className="part-tile-img">
-                      {fig.image_url ? (
-                        <img src={fig.image_url} alt={fig.name} loading="lazy" />
-                      ) : (
-                        <Package size={24} strokeWidth={1.5} className="text-muted" />
-                      )}
+              <div className="part-tile-scroll">
+                <div className="minifig-tile-grid">
+                  {minifigs.map((fig) => (
+                    <div key={fig.fig_num} className="part-tile">
+                      <div className="part-tile-img">
+                        {fig.image_url ? (
+                          <img src={fig.image_url} alt={fig.name} loading="lazy" />
+                        ) : (
+                          <Package size={24} strokeWidth={1.5} className="text-muted" />
+                        )}
+                      </div>
+                      <div className="part-tile-info">
+                        <span className="part-tile-id">{fig.fig_num}</span>
+                        <span className="part-tile-qty">×{fig.quantity}</span>
+                      </div>
                     </div>
-                    <div className="part-tile-info">
-                      <span className="part-tile-id">{fig.fig_num}</span>
-                      <span className="part-tile-qty">×{fig.quantity}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>

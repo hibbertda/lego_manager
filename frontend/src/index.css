@@ -1017,6 +1017,18 @@ table.data-table th {
   gap: 0.5rem;
 }
 
+.minifig-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.part-tile-scroll {
+  height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
 .part-tile {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
