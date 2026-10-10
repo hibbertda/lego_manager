@@ -522,6 +522,19 @@ textarea:focus {
   color: var(--color-primary-dark);
 }
 
+.badge-link {
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: filter 0.1s ease;
+}
+
+.badge-link:hover,
+.badge-link:focus-visible {
+  filter: brightness(0.92);
+  text-decoration: underline;
+}
+
 /* ---------- Sets grid/list ---------- */
 
 .page-header {

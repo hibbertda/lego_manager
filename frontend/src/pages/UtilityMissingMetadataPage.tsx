@@ -13,6 +13,13 @@ interface MissingMetadataResult extends SetSummary {
 interface MissingMetadataResponse {
   results: MissingMetadataResult[];
   base_url_configured: boolean;
+  rebrickable_configured: boolean;
+}
+
+/** Where clicking a given missing-field badge should take an admin to resolve it. */
+function resolveLinkFor(setId: number, field: string): string {
+  if (field === 'label') return '/utility/labels';
+  return `/sets/${setId}?resolve=${encodeURIComponent(field)}`;
 }
 
 export default function UtilityMissingMetadataPage() {
@@ -36,7 +43,8 @@ export default function UtilityMissingMetadataPage() {
       <UtilityTabs />
 
       <p className="text-muted">
-        Scan all owned sets and flag any that are missing a name, year, theme, piece count, image, or label.
+        Scan all owned sets and flag any that are missing a name, year, theme, piece count, image, label, part
+        list, or minifig list. Click a missing-item tag to jump straight to where it can be resolved.
       </p>
 
       <button className="btn btn-primary" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
@@ -55,6 +63,12 @@ export default function UtilityMissingMetadataPage() {
             <div className="alert alert-error">
               <AlertTriangle size={15} /> APP_BASE_URL isn't configured, so missing labels can't be detected or
               generated.
+            </div>
+          )}
+          {!data.rebrickable_configured && (
+            <div className="alert alert-error">
+              <AlertTriangle size={15} /> Rebrickable isn't configured, so missing parts/minifig lists can't be
+              detected. Add an API key under <Link to="/admin/rebrickable">Admin — Rebrickable API</Link>.
             </div>
           )}
           {data.results.length === 0 ? (
@@ -80,9 +94,15 @@ export default function UtilityMissingMetadataPage() {
                     </td>
                     <td>
                       {s.missing_fields.map((f) => (
-                        <span key={f} className="badge badge-warning" style={{ marginRight: '0.25rem' }}>
+                        <Link
+                          key={f}
+                          to={resolveLinkFor(s.setID, f)}
+                          className="badge badge-warning badge-link"
+                          style={{ marginRight: '0.25rem' }}
+                          title={`Resolve missing ${f}`}
+                        >
                           {f}
-                        </span>
+                        </Link>
                       ))}
                     </td>
                     <td>

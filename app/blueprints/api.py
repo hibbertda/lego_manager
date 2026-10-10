@@ -863,7 +863,7 @@ def set_parts(set_id):
     return jsonify(
         parts=_serialize_parts(parts),
         minifigs=_serialize_minifigs(minifigs),
-        synced=current_app.db_ops.has_set_parts(set_id),
+        synced=bool(set_data.get("parts_synced_at")),
         rebrickable_configured=bool(current_app.rebrickable_api.api_key),
     )
 
@@ -902,6 +902,7 @@ def sync_set_parts(set_id):
 
     current_app.db_ops.replace_set_parts(set_id, parts)
     current_app.db_ops.replace_set_minifigs(set_id, minifigs or [])
+    current_app.db_ops.mark_parts_synced(set_id)
     return jsonify(
         parts=_serialize_parts(parts),
         minifigs=_serialize_minifigs(minifigs or []),
@@ -1233,20 +1234,28 @@ def labels():
 @login_required
 def run_missing_metadata():
     results = current_app.db_ops.find_sets_missing_metadata()
+    results_by_id = {result["setID"]: result for result in results}
+
+    def _flag_missing(set_data, field):
+        existing = results_by_id.get(set_data["setID"])
+        if existing:
+            existing["missing_fields"].append(field)
+        else:
+            set_data["missing_fields"] = [field]
+            results.append(set_data)
+            results_by_id[set_data["setID"]] = set_data
+
     base_url = current_app.config["APP_BASE_URL"]
-    if base_url:
+    rebrickable_configured = bool(current_app.rebrickable_api.api_key)
+
+    if base_url or rebrickable_configured:
         sets_dir = current_app.config["SETS_DIR"]
-        results_by_id = {result["setID"]: result for result in results}
         for set_data in current_app.db_ops.get_all_sets():
-            if label_ops.label_exists(set_data, sets_dir):
-                continue
-            existing = results_by_id.get(set_data["setID"])
-            if existing:
-                existing["missing_fields"].append("label")
-            else:
-                set_data["missing_fields"] = ["label"]
-                results.append(set_data)
-                results_by_id[set_data["setID"]] = set_data
+            if base_url and not label_ops.label_exists(set_data, sets_dir):
+                _flag_missing(set_data, "label")
+            if rebrickable_configured and not set_data.get("parts_synced_at"):
+                _flag_missing(set_data, "parts")
+                _flag_missing(set_data, "minifigs")
         results.sort(key=lambda set_data: (set_data["name"] or "").lower())
 
     return jsonify(
@@ -1258,4 +1267,5 @@ def run_missing_metadata():
             for set_data in results
         ],
         base_url_configured=bool(base_url),
+        rebrickable_configured=rebrickable_configured,
     )

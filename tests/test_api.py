@@ -1030,6 +1030,86 @@ def test_run_missing_metadata_task_no_gaps_returns_empty(app, admin_client):
     assert response.get_json()["results"] == []
 
 
+def test_run_missing_metadata_flags_unsynced_parts_and_minifigs(app, admin_client):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 904,
+            "number": "90104",
+            "name": "Needs Sync",
+            "year": 2024,
+            "theme": "Complete",
+            "pieces": 100,
+            "local_images": ["90104/images/x.jpg"],
+            "local_instructions": ["90104/instructions/y.pdf"],
+        }
+    )
+    app.rebrickable_api.configure("test-key")
+
+    response = admin_client.post("/api/utility/missing-metadata/run")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["rebrickable_configured"] is True
+    result = next(r for r in body["results"] if r["setID"] == 904)
+    assert "parts" in result["missing_fields"]
+    assert "minifigs" in result["missing_fields"]
+
+
+def test_run_missing_metadata_ignores_parts_when_rebrickable_not_configured(
+    app, admin_client
+):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 905,
+            "number": "90105",
+            "name": "No Rebrickable",
+            "year": 2024,
+            "theme": "Complete",
+            "pieces": 100,
+            "local_images": ["90105/images/x.jpg"],
+            "local_instructions": ["90105/instructions/y.pdf"],
+        }
+    )
+
+    response = admin_client.post("/api/utility/missing-metadata/run")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["rebrickable_configured"] is False
+    assert body["results"] == []
+
+
+def test_run_missing_metadata_clears_parts_flag_once_synced(
+    app, admin_client, monkeypatch
+):
+    app.db_ops.insert_set_data(
+        {
+            "setID": 906,
+            "number": "90106",
+            "name": "Synced Set",
+            "year": 2024,
+            "theme": "Complete",
+            "pieces": 100,
+            "local_images": ["90106/images/x.jpg"],
+            "local_instructions": ["90106/instructions/y.pdf"],
+        }
+    )
+    app.rebrickable_api.configure("test-key")
+    monkeypatch.setattr(
+        app.rebrickable_api, "get_combined_set_parts", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        app.rebrickable_api, "get_combined_set_minifigs", lambda *a, **k: []
+    )
+    admin_client.post("/api/sets/906/parts/sync")
+
+    response = admin_client.post("/api/utility/missing-metadata/run")
+
+    assert response.status_code == 200
+    names = {r["name"] for r in response.get_json()["results"]}
+    assert "Synced Set" not in names
+
+
 def test_owned_set_count_excludes_wishlist(app, admin_client):
     app.db_ops.insert_set_data(
         {

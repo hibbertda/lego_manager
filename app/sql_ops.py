@@ -23,6 +23,7 @@ SET_COLUMNS = (
     "favorite",
     "location",
     "build_photos",
+    "parts_synced_at",
 )
 
 VALID_BUILD_STATUSES = (
@@ -176,6 +177,10 @@ class DatabaseOps:
                 (
                     "build_photos",
                     "ALTER TABLE sets ADD COLUMN build_photos TEXT DEFAULT NULL",
+                ),
+                (
+                    "parts_synced_at",
+                    "ALTER TABLE sets ADD COLUMN parts_synced_at TIMESTAMP DEFAULT NULL",
                 ),
             ):
                 if column in existing_columns:
@@ -346,6 +351,17 @@ class DatabaseOps:
                 "SELECT 1 FROM set_parts WHERE setID = ? LIMIT 1", (set_id,)
             ).fetchone()
         return row is not None
+
+    def mark_parts_synced(self, set_id: int) -> None:
+        """Record that a Rebrickable parts/minifigs sync has completed for this
+        set, independent of whether the results were non-empty — a set can
+        legitimately have zero minifigs, so presence of rows alone can't be
+        used to tell 'never synced' apart from 'synced, found none'."""
+        with self.create_connection() as conn:
+            conn.execute(
+                "UPDATE sets SET parts_synced_at = CURRENT_TIMESTAMP WHERE setID = ?",
+                (set_id,),
+            )
 
     # -- Set minifigs (Rebrickable) ------------------------------------------
 

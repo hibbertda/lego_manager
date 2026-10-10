@@ -610,3 +610,27 @@ def test_set_minifigs_deleted_when_set_deleted(db_ops):
     db_ops.delete_set(212)
 
     assert db_ops.get_set_minifigs(212) == []
+
+
+def test_mark_parts_synced_sets_timestamp(db_ops):
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=213))
+
+    assert db_ops.get_set_by_id(213)["parts_synced_at"] is None
+
+    db_ops.mark_parts_synced(213)
+
+    assert db_ops.get_set_by_id(213)["parts_synced_at"] is not None
+
+
+def test_mark_parts_synced_persists_even_with_zero_results(db_ops):
+    """A set can legitimately have zero minifigs after a real sync — the
+    synced marker must stay independent of row counts so the UI/missing-
+    metadata scan don't keep treating it as never-synced."""
+    db_ops.insert_set_data(dict(SAMPLE_SET, setID=214))
+
+    db_ops.replace_set_parts(214, [])
+    db_ops.replace_set_minifigs(214, [])
+    db_ops.mark_parts_synced(214)
+
+    assert db_ops.has_set_parts(214) is False
+    assert db_ops.get_set_by_id(214)["parts_synced_at"] is not None

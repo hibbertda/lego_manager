@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,7 @@ const PdfViewer = lazy(() => import('../components/PdfViewer'));
 export default function SetDetailPage() {
   const { setId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const isAdmin = !!session?.user?.is_admin;
@@ -128,6 +129,34 @@ export default function SetDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, setId]);
 
+  const resolveField = searchParams.get('resolve');
+
+  // Deep-link support from the Utility — Missing Metadata page: jump straight
+  // into whatever lets an admin fix the specific missing field that was
+  // clicked (edit modal, a Brickset refresh, or the parts/minifigs section).
+  useEffect(() => {
+    if (!set || !resolveField) return;
+    if (isAdmin) {
+      if (resolveField === 'cover image' && set.setID > 0) {
+        refreshFromBrickset();
+      } else if (resolveField === 'parts' || resolveField === 'minifigs') {
+        document
+          .getElementById('parts-minifigs-section')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        setShowEditModal(true);
+      }
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('resolve');
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [set?.setID, resolveField, isAdmin]);
 
   async function refreshFromBrickset() {
     setActionError(null);
@@ -480,7 +509,7 @@ function PartsAndMinifigs({ setId, isAdmin }: { setId: number; isAdmin: boolean 
   const minifigs = data?.minifigs ?? [];
 
   return (
-    <div style={{ marginTop: '1.5rem' }}>
+    <div id="parts-minifigs-section" style={{ marginTop: '1.5rem', scrollMarginTop: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h3 style={{ margin: 0 }}>Parts &amp; minifigs</h3>
         {isAdmin && data?.rebrickable_configured && (
