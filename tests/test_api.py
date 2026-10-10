@@ -861,11 +861,29 @@ def test_sync_set_parts_requires_admin(app, user_client):
     assert response.status_code == 403
 
 
+def test_rebrickable_key_resyncs_from_db_each_request(app, admin_client):
+    """Regression test for the multi-worker staleness bug: a key saved
+    straight to the DB (simulating another gunicorn worker having handled
+    the admin save) must be picked up on the very next request, without
+    anyone calling `.configure()` on this process's in-memory client."""
+    assert app.rebrickable_api.api_key == ""
+
+    app.db_ops.save_rebrickable_settings(api_key="from-another-worker")
+    admin_client.get("/api/session")
+
+    assert app.rebrickable_api.api_key == "from-another-worker"
+
+    app.db_ops.save_rebrickable_settings(api_key="")
+    admin_client.get("/api/session")
+
+    assert app.rebrickable_api.api_key == ""
+
+
 def test_sync_set_parts_requires_rebrickable_configured(app, admin_client):
     app.db_ops.insert_set_data(
         {"setID": 852, "number": "80052", "name": "Set", "local_images": []}
     )
-    app.rebrickable_api.configure("")
+    app.db_ops.save_rebrickable_settings(api_key="")
 
     response = admin_client.post("/api/sets/852/parts/sync")
 
@@ -879,7 +897,7 @@ def test_sync_set_parts_success_stores_and_returns_parts_and_minifigs(
     app.db_ops.insert_set_data(
         {"setID": 853, "number": "80053", "name": "Set", "local_images": []}
     )
-    app.rebrickable_api.configure("test-key")
+    app.db_ops.save_rebrickable_settings(api_key="test-key")
 
     def fake_get_combined_set_parts(set_number, base_dir=None, max_bytes=None):
         return [
@@ -945,7 +963,7 @@ def test_sync_set_parts_failure_shows_error(app, admin_client, monkeypatch):
     app.db_ops.insert_set_data(
         {"setID": 854, "number": "80054", "name": "Set", "local_images": []}
     )
-    app.rebrickable_api.configure("test-key")
+    app.db_ops.save_rebrickable_settings(api_key="test-key")
     monkeypatch.setattr(
         app.rebrickable_api, "get_combined_set_parts", lambda *a, **k: None
     )
@@ -962,7 +980,7 @@ def test_sync_set_parts_succeeds_even_if_minifig_fetch_fails(
     app.db_ops.insert_set_data(
         {"setID": 855, "number": "80055", "name": "Set", "local_images": []}
     )
-    app.rebrickable_api.configure("test-key")
+    app.db_ops.save_rebrickable_settings(api_key="test-key")
     monkeypatch.setattr(
         app.rebrickable_api, "get_combined_set_parts", lambda *a, **k: []
     )
@@ -1043,7 +1061,7 @@ def test_run_missing_metadata_flags_unsynced_parts_and_minifigs(app, admin_clien
             "local_instructions": ["90104/instructions/y.pdf"],
         }
     )
-    app.rebrickable_api.configure("test-key")
+    app.db_ops.save_rebrickable_settings(api_key="test-key")
 
     response = admin_client.post("/api/utility/missing-metadata/run")
 
@@ -1094,7 +1112,7 @@ def test_run_missing_metadata_clears_parts_flag_once_synced(
             "local_instructions": ["90106/instructions/y.pdf"],
         }
     )
-    app.rebrickable_api.configure("test-key")
+    app.db_ops.save_rebrickable_settings(api_key="test-key")
     monkeypatch.setattr(
         app.rebrickable_api, "get_combined_set_parts", lambda *a, **k: []
     )

@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Blocks, LogOut, Moon, Package, Plus, Settings, Star, Sun, Wrench } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Blocks, LogOut, Menu, Moon, Package, Plus, Settings, Star, Sun, Wrench } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import TopbarSearch from './TopbarSearch';
@@ -10,8 +10,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { session, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [addSetOpen, setAddSetOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Auto-close the mobile sidebar drawer whenever the route changes, so
+  // navigating to a page doesn't leave the overlay stuck open.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   async function handleLogout() {
     await logout();
@@ -21,10 +29,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <div>
       <header className="topbar">
-        <Link to="/sets" className="brand">
-          <Blocks className="brand-icon" size={22} />
-          <span>LEGO Manager</span>
-        </Link>
+        <div className="topbar-start">
+          <button
+            className="menu-toggle"
+            aria-label="Toggle navigation menu"
+            onClick={() => setSidebarOpen((v) => !v)}
+          >
+            <Menu size={20} />
+          </button>
+          <Link to="/sets" className="brand">
+            <Blocks className="brand-icon" size={22} />
+            <span>LEGO Manager</span>
+          </Link>
+        </div>
         <TopbarSearch />
         <div className="user-menu">
           <button className="user-menu-trigger" onClick={() => setUserMenuOpen((v) => !v)}>
@@ -56,7 +73,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="app-shell">
-        <aside className="app-sidebar">
+        {sidebarOpen && (
+          <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+        )}
+        <aside className={sidebarOpen ? 'app-sidebar open' : 'app-sidebar'}>
           <Link to="/sets" className="counter-card">
             <Package className="counter-icon" size={20} />
             <span>

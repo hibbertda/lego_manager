@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useInfiniteSets, type SetsFilters } from '../hooks/useInfiniteSets';
 import { SORT_LABELS, DEFAULT_SORT } from '../constants';
-import { LayoutGrid, List, Package, Star } from 'lucide-react';
+import { ChevronDown, ChevronUp, LayoutGrid, List, Package, SlidersHorizontal, Star } from 'lucide-react';
 import FilterSidebar from '../components/FilterSidebar';
 import SetCard from '../components/SetCard';
 
 export default function SetsListPage({ mode }: { mode: 'sets' | 'wishlist' }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filters: SetsFilters = useMemo(
     () => ({
@@ -91,14 +92,25 @@ export default function SetsListPage({ mode }: { mode: 'sets' | 'wishlist' }) {
         </div>
       </div>
 
+      <button
+        className="btn filters-toggle"
+        onClick={() => setFiltersOpen((v) => !v)}
+        aria-expanded={filtersOpen}
+      >
+        <SlidersHorizontal size={15} /> Filters
+        {filtersOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      </button>
+
       <div className="sets-layout">
-        <FilterSidebar
-          wishlistMode={mode === 'wishlist'}
-          themes={themes}
-          locations={locations}
-          filters={filters}
-          onChange={updateFilters}
-        />
+        <div className={filtersOpen ? 'sets-filters-wrap open' : 'sets-filters-wrap'}>
+          <FilterSidebar
+            wishlistMode={mode === 'wishlist'}
+            themes={themes}
+            locations={locations}
+            filters={filters}
+            onChange={updateFilters}
+          />
+        </div>
 
         <div className="sets-content">
           {query.isLoading && (

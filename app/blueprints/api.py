@@ -38,6 +38,37 @@ def _json_error(message: str, status: int):
     return jsonify(error=message), status
 
 
+@api_bp.before_request
+def _resync_external_api_keys():
+    """Gunicorn runs multiple worker processes (see Dockerfile), each with
+    its own copy of `current_app.brickset_api`/`rebrickable_api` created at
+    startup. When an admin saves a new key, `.configure()` only updates the
+    in-memory object in whichever worker handled that request — every other
+    worker keeps serving the old (possibly blank) key until restarted,
+    which looked like intermittent "no API key configured" errors that a
+    reload or a key re-save would only fix by luck. Re-reading the
+    DB-persisted settings (the actual source of truth) at the top of every
+    request keeps all workers in sync cheaply, since this is a single-row
+    lookup."""
+    brickset_settings = current_app.db_ops.get_brickset_settings()
+    brickset_api_key = (
+        (brickset_settings or {}).get("api_key")
+        or current_app.config["BRICKSET_API_KEY"]
+        or ""
+    )
+    if brickset_api_key != current_app.brickset_api.api_key:
+        current_app.brickset_api.configure(brickset_api_key)
+
+    rebrickable_settings = current_app.db_ops.get_rebrickable_settings()
+    rebrickable_api_key = (
+        (rebrickable_settings or {}).get("api_key")
+        or current_app.config["REBRICKABLE_API_KEY"]
+        or ""
+    )
+    if rebrickable_api_key != current_app.rebrickable_api.api_key:
+        current_app.rebrickable_api.configure(rebrickable_api_key)
+
+
 @api_bp.record_once
 def _install_api_auth_gate(setup_state):
     app = setup_state.app
