@@ -12,6 +12,9 @@ export default function AdminTabs() {
       <NavLink to="/admin/brickset" className={({ isActive }) => (isActive ? 'active' : '')}>
         Brickset API
       </NavLink>
+      <NavLink to="/admin/rebrickable" className={({ isActive }) => (isActive ? 'active' : '')}>
+        Rebrickable API
+      </NavLink>
     </div>
   );
 }

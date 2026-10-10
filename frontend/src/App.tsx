@@ -12,6 +12,7 @@ import SearchPage from './pages/SearchPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminSsoPage from './pages/AdminSsoPage';
 import AdminBricksetPage from './pages/AdminBricksetPage';
+import AdminRebrickablePage from './pages/AdminRebrickablePage';
 import UtilityLabelsPage from './pages/UtilityLabelsPage';
 import UtilityMissingMetadataPage from './pages/UtilityMissingMetadataPage';
 
@@ -102,6 +103,14 @@ function AppRoutes() {
                   element={
                     <RequireAdmin>
                       <AdminBricksetPage />
+                    </RequireAdmin>
+                  }
+                />
+                <Route
+                  path="/admin/rebrickable"
+                  element={
+                    <RequireAdmin>
+                      <AdminRebrickablePage />
                     </RequireAdmin>
                   }
                 />

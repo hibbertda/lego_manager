@@ -819,6 +819,97 @@ def refresh_set(set_id):
     return jsonify(ok=True)
 
 
+def _serialize_parts(parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "part_num": p["part_num"],
+            "name": p["name"],
+            "color_name": p["color_name"],
+            "quantity": p["quantity"],
+            "image_url": (
+                url_for("sets.custom_static", filename=p["image_path"])
+                if p.get("image_path")
+                else None
+            ),
+        }
+        for p in parts
+    ]
+
+
+def _serialize_minifigs(minifigs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "fig_num": m["fig_num"],
+            "name": m["name"],
+            "quantity": m["quantity"],
+            "image_url": (
+                url_for("sets.custom_static", filename=m["image_path"])
+                if m.get("image_path")
+                else None
+            ),
+        }
+        for m in minifigs
+    ]
+
+
+@api_bp.route("/sets/<int(signed=True):set_id>/parts")
+@login_required
+def set_parts(set_id):
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        return _json_error("Not found", 404)
+    parts = current_app.db_ops.get_set_parts(set_id)
+    minifigs = current_app.db_ops.get_set_minifigs(set_id)
+    return jsonify(
+        parts=_serialize_parts(parts),
+        minifigs=_serialize_minifigs(minifigs),
+        synced=bool(set_data.get("parts_synced_at")),
+        rebrickable_configured=bool(current_app.rebrickable_api.api_key),
+    )
+
+
+@api_bp.route("/sets/<int(signed=True):set_id>/parts/sync", methods=["POST"])
+@login_required
+@admin_required
+def sync_set_parts(set_id):
+    set_data = current_app.db_ops.get_set_by_id(set_id)
+    if not set_data:
+        return _json_error("Not found", 404)
+    if not current_app.rebrickable_api.api_key:
+        return _json_error(
+            "Rebrickable isn't configured. Add an API key under Admin — Rebrickable API.",
+            400,
+        )
+
+    set_number = str(set_data["setNumber"])
+    sets_dir = current_app.config["SETS_DIR"]
+    max_bytes = current_app.config["MAX_DOWNLOAD_BYTES"]
+
+    parts = current_app.rebrickable_api.get_combined_set_parts(
+        set_number, base_dir=sets_dir, max_bytes=max_bytes
+    )
+    if parts is None:
+        return _json_error(
+            "Failed to fetch parts from Rebrickable. Check the set number and API key and try again.",
+            422,
+        )
+    # Minifigs are fetched best-effort: a failure here shouldn't discard an
+    # otherwise-successful parts sync, since parts are the primary data and
+    # some sets genuinely have zero minifigs rather than a fetch failure.
+    minifigs = current_app.rebrickable_api.get_combined_set_minifigs(
+        set_number, base_dir=sets_dir, max_bytes=max_bytes
+    )
+
+    current_app.db_ops.replace_set_parts(set_id, parts)
+    current_app.db_ops.replace_set_minifigs(set_id, minifigs or [])
+    current_app.db_ops.mark_parts_synced(set_id)
+    return jsonify(
+        parts=_serialize_parts(parts),
+        minifigs=_serialize_minifigs(minifigs or []),
+        synced=True,
+    )
+
+
 @api_bp.route("/sets/<int(signed=True):set_id>", methods=["DELETE"])
 @login_required
 @admin_required
@@ -1089,6 +1180,35 @@ def update_brickset():
     return jsonify(ok=True)
 
 
+@api_bp.route("/admin/rebrickable")
+@login_required
+@admin_required
+def rebrickable():
+    return jsonify(
+        settings=current_app.db_ops.get_rebrickable_settings(),
+        env_api_key_set=bool(current_app.config.get("REBRICKABLE_API_KEY")),
+    )
+
+
+@api_bp.route("/admin/rebrickable", methods=["POST"])
+@login_required
+@admin_required
+def update_rebrickable():
+    payload = _request_payload()
+    api_key = _string_value(payload, "api_key").strip()
+
+    existing = current_app.db_ops.get_rebrickable_settings()
+    if not api_key and existing:
+        api_key = existing["api_key"]
+
+    if not api_key:
+        return _json_error("An API key is required.", 400)
+
+    current_app.db_ops.save_rebrickable_settings(api_key=api_key)
+    current_app.rebrickable_api.configure(api_key)
+    return jsonify(ok=True)
+
+
 @api_bp.route("/utility/labels")
 @login_required
 def labels():
@@ -1114,20 +1234,28 @@ def labels():
 @login_required
 def run_missing_metadata():
     results = current_app.db_ops.find_sets_missing_metadata()
+    results_by_id = {result["setID"]: result for result in results}
+
+    def _flag_missing(set_data, field):
+        existing = results_by_id.get(set_data["setID"])
+        if existing:
+            existing["missing_fields"].append(field)
+        else:
+            set_data["missing_fields"] = [field]
+            results.append(set_data)
+            results_by_id[set_data["setID"]] = set_data
+
     base_url = current_app.config["APP_BASE_URL"]
-    if base_url:
+    rebrickable_configured = bool(current_app.rebrickable_api.api_key)
+
+    if base_url or rebrickable_configured:
         sets_dir = current_app.config["SETS_DIR"]
-        results_by_id = {result["setID"]: result for result in results}
         for set_data in current_app.db_ops.get_all_sets():
-            if label_ops.label_exists(set_data, sets_dir):
-                continue
-            existing = results_by_id.get(set_data["setID"])
-            if existing:
-                existing["missing_fields"].append("label")
-            else:
-                set_data["missing_fields"] = ["label"]
-                results.append(set_data)
-                results_by_id[set_data["setID"]] = set_data
+            if base_url and not label_ops.label_exists(set_data, sets_dir):
+                _flag_missing(set_data, "label")
+            if rebrickable_configured and not set_data.get("parts_synced_at"):
+                _flag_missing(set_data, "parts")
+                _flag_missing(set_data, "minifigs")
         results.sort(key=lambda set_data: (set_data["name"] or "").lower())
 
     return jsonify(
@@ -1139,4 +1267,5 @@ def run_missing_metadata():
             for set_data in results
         ],
         base_url_configured=bool(base_url),
+        rebrickable_configured=rebrickable_configured,
     )

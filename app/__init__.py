@@ -18,6 +18,7 @@ from app.auth_ops import AuthOps
 from app.brickset_ops import BricksetAPI
 from app.config import Config
 from app.oidc import OIDCManager
+from app.rebrickable_ops import RebrickableAPI
 from app.sql_ops import DatabaseOps
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,6 +74,14 @@ def create_app(config_class: type = Config) -> Flask:
     brickset_settings = app.db_ops.get_brickset_settings()
     api_key = (brickset_settings or {}).get("api_key") or app.config["BRICKSET_API_KEY"]
     app.brickset_api = BricksetAPI(api_key)
+
+    # Same precedence rule as Brickset above: DB value (admin UI) wins over
+    # the .env-sourced Config fallback.
+    rebrickable_settings = app.db_ops.get_rebrickable_settings()
+    rebrickable_api_key = (rebrickable_settings or {}).get("api_key") or app.config[
+        "REBRICKABLE_API_KEY"
+    ]
+    app.rebrickable_api = RebrickableAPI(rebrickable_api_key)
 
     login_manager.init_app(app)
     app.oidc_oauth = OIDCManager(app)

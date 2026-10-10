@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, extractErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -18,13 +18,14 @@ import {
   X,
 } from 'lucide-react';
 import { BUILD_STATUS_META, OWNED_BUILD_STATUSES } from '../constants';
-import type { SetDetailResponse } from '../types';
+import type { SetDetailResponse, SetPartsResponse } from '../types';
 
 const PdfViewer = lazy(() => import('../components/PdfViewer'));
 
 export default function SetDetailPage() {
   const { setId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const isAdmin = !!session?.user?.is_admin;
@@ -128,6 +129,34 @@ export default function SetDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, setId]);
 
+  const resolveField = searchParams.get('resolve');
+
+  // Deep-link support from the Utility — Missing Metadata page: jump straight
+  // into whatever lets an admin fix the specific missing field that was
+  // clicked (edit modal, a Brickset refresh, or the parts/minifigs section).
+  useEffect(() => {
+    if (!set || !resolveField) return;
+    if (isAdmin) {
+      if (resolveField === 'cover image' && set.setID > 0) {
+        refreshFromBrickset();
+      } else if (resolveField === 'parts' || resolveField === 'minifigs') {
+        document
+          .getElementById('parts-minifigs-section')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        setShowEditModal(true);
+      }
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('resolve');
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [set?.setID, resolveField, isAdmin]);
 
   async function refreshFromBrickset() {
     setActionError(null);
@@ -278,6 +307,8 @@ export default function SetDetailPage() {
               </Suspense>
             )}
           </div>
+
+          <PartsAndMinifigs setId={set.setID} isAdmin={isAdmin} />
 
         </div>
 
@@ -438,6 +469,137 @@ export default function SetDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['set-detail', setId] });
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function PartsAndMinifigs({ setId, isAdmin }: { setId: number; isAdmin: boolean }) {
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['set-parts', setId],
+    queryFn: async () => (await api.get<SetPartsResponse>(`/sets/${setId}/parts`)).data,
+  });
+
+  async function syncParts() {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      await api.post(`/sets/${setId}/parts/sync`);
+      queryClient.invalidateQueries({ queryKey: ['set-parts', setId] });
+    } catch (err) {
+      setSyncError(extractErrorMessage(err, 'Failed to sync parts from Rebrickable.'));
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ marginTop: '1.5rem' }}>
+        <span className="spinner" />
+      </div>
+    );
+  }
+
+  const parts = data?.parts ?? [];
+  const minifigs = data?.minifigs ?? [];
+
+  return (
+    <div id="parts-minifigs-section" style={{ marginTop: '1.5rem', scrollMarginTop: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h3 style={{ margin: 0 }}>Parts &amp; minifigs</h3>
+        {isAdmin && data?.rebrickable_configured && (
+          <button className="btn btn-outline btn-sm" onClick={syncParts} disabled={syncing}>
+            {syncing ? <span className="spinner" /> : <RefreshCw size={14} />}
+            {data?.synced ? 'Resync from Rebrickable' : 'Fetch from Rebrickable'}
+          </button>
+        )}
+      </div>
+
+      {syncError && (
+        <div className="alert alert-error" style={{ marginTop: '0.5rem' }}>
+          <AlertTriangle size={15} /> {syncError}
+        </div>
+      )}
+
+      {!data?.rebrickable_configured ? (
+        <div className="card" style={{ padding: '1rem', marginTop: '0.5rem' }}>
+          <p className="muted" style={{ margin: 0 }}>
+            {isAdmin ? (
+              <>Configure a Rebrickable API key under <Link to="/admin/rebrickable">Admin — Rebrickable API</Link> to fetch this set&apos;s parts and minifigs.</>
+            ) : (
+              'Parts and minifigs aren\u2019t available yet — ask an admin to configure the Rebrickable API.'
+            )}
+          </p>
+        </div>
+      ) : !data?.synced ? (
+        <div className="card" style={{ padding: '1rem', marginTop: '0.5rem' }}>
+          <p className="muted" style={{ margin: 0 }}>
+            {isAdmin
+              ? 'No parts list fetched yet for this set.'
+              : 'No parts list has been fetched yet for this set.'}
+          </p>
+        </div>
+      ) : (
+        <div className="parts-minifigs-grid" style={{ marginTop: '0.5rem' }}>
+          <div>
+            <h4 style={{ margin: '0 0 0.4rem' }}>Parts ({parts.length})</h4>
+            {parts.length === 0 ? (
+              <p className="muted" style={{ fontSize: '0.85rem' }}>No parts found for this set.</p>
+            ) : (
+              <div className="part-tile-scroll">
+                <div className="part-tile-grid">
+                  {parts.map((part) => (
+                    <div key={`${part.part_num}-${part.color_name}`} className="part-tile">
+                      <div className="part-tile-img">
+                        {part.image_url ? (
+                          <img src={part.image_url} alt={part.name} loading="lazy" />
+                        ) : (
+                          <Package size={24} strokeWidth={1.5} className="text-muted" />
+                        )}
+                      </div>
+                      <div className="part-tile-info">
+                        <span className="part-tile-id">{part.part_num}</span>
+                        <span className="part-tile-qty">×{part.quantity}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 style={{ margin: '0 0 0.4rem' }}>Minifigs ({minifigs.length})</h4>
+            {minifigs.length === 0 ? (
+              <p className="muted" style={{ fontSize: '0.85rem' }}>No minifigs in this set.</p>
+            ) : (
+              <div className="part-tile-scroll">
+                <div className="minifig-tile-grid">
+                  {minifigs.map((fig) => (
+                    <div key={fig.fig_num} className="part-tile">
+                      <div className="part-tile-img">
+                        {fig.image_url ? (
+                          <img src={fig.image_url} alt={fig.name} loading="lazy" />
+                        ) : (
+                          <Package size={24} strokeWidth={1.5} className="text-muted" />
+                        )}
+                      </div>
+                      <div className="part-tile-info">
+                        <span className="part-tile-id">{fig.fig_num}</span>
+                        <span className="part-tile-qty">×{fig.quantity}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

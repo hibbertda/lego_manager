@@ -123,6 +123,33 @@ export interface BricksetSettings {
   password: string;
 }
 
+export interface RebrickableSettings {
+  api_key: string;
+}
+
+export interface SetPart {
+  part_num: string;
+  name: string;
+  color_name: string;
+  quantity: number;
+  image_url: string | null;
+}
+
+export interface SetMinifig {
+  fig_num: string;
+  name: string;
+  quantity: number;
+  image_url: string | null;
+}
+
+export interface SetPartsResponse {
+  parts: SetPart[];
+  minifigs: SetMinifig[];
+  synced: boolean;
+  rebrickable_configured: boolean;
+}
+
+
 export interface MissingMetadataResult extends SetSummary {
   missing_fields: string[];
 }
