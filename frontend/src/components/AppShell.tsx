@@ -48,7 +48,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <span className="avatar-badge">
               {session?.user?.username?.[0]?.toUpperCase() ?? '?'}
             </span>
-            <span>
+            <span className="user-menu-label">
               {session?.user?.username}
               {session?.user?.is_admin && ' (admin)'}
             </span>

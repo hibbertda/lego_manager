@@ -318,6 +318,8 @@ p {
 .avatar-badge {
   width: 1.9rem;
   height: 1.9rem;
+  min-width: 1.9rem;
+  flex-shrink: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.25);
   display: flex;
@@ -1036,6 +1038,29 @@ table.data-table th {
 @media (max-width: 900px) {
   .menu-toggle {
     display: flex;
+  }
+  .topbar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+  }
+  .topbar-start {
+    flex-shrink: 0;
+    gap: 0.4rem;
+  }
+  .topbar .brand span {
+    display: none;
+  }
+  .topbar-search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .user-menu {
+    flex-shrink: 0;
+    margin-left: 0;
+  }
+  .user-menu-label {
+    display: none;
   }
   .app-sidebar {
     display: none;
