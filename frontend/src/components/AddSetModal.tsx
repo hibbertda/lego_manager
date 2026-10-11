@@ -123,7 +123,9 @@ export default function AddSetModal({ onClose }: { onClose: () => void }) {
               <label>Set Number</label>
               <input
                 type="text"
-                placeholder="e.g. 75192-1"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="e.g. 75192"
                 value={setNumber}
                 onChange={(e) => setSetNumber(e.target.value)}
                 required
@@ -147,7 +149,13 @@ export default function AddSetModal({ onClose }: { onClose: () => void }) {
           <form onSubmit={submitManual}>
             <div className="field">
               <label>Set Number *</label>
-              <input type="text" value={mSetNumber} onChange={(e) => setMSetNumber(e.target.value)} required />
+              <input
+                type="tel"
+                placeholder="e.g. 75192-1"
+                value={mSetNumber}
+                onChange={(e) => setMSetNumber(e.target.value)}
+                required
+              />
             </div>
             <div className="field">
               <label>Name *</label>

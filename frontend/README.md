@@ -34,6 +34,18 @@ This outputs static assets into `../static/app/`, which `app/blueprints/spa.py`
 serves at `/app/*` (with SPA history-mode fallback to `index.html`). No
 separate Node server is needed in production — Flask serves everything.
 
+## Progressive Web App
+
+The build is a PWA via `vite-plugin-pwa` (configured in `vite.config.ts`):
+a web app manifest + icons (`frontend/public/pwa-*.png`,
+`apple-touch-icon.png`) make it installable to a phone's home screen, and a
+generated service worker (`sw.js`) precaches the app shell and serves
+`/files/*` (stale-while-revalidate) and `/api/*` (network-first) so recently
+viewed data still renders if the network drops. Regenerate the icons from
+`frontend/public/icon.svg` / `icon-maskable.svg` with ImageMagick
+(`convert -background none icon.svg -resize <size> <out>.png`) if the brand
+color/logo ever changes.
+
 ## Stack
 
 - React 19 + TypeScript
